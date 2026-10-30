@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="面向开发者的大模型运行机制交互实验室：Token、上下文窗口与采样参数。" />
+  <title>LLM Runtime Lab · 交互式运行机制实验室</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700;900&display=swap');
+
+    :root { --ink:#e9e5dd; --muted:#9b9a95; --line:rgba(233,229,221,.14); --panel:#111413; --panel2:#161a18; --bg:#0a0c0b; --lime:#cbff62; --orange:#ff8659; --blue:#63d7ff; --yellow:#ffd166; --red:#ff6574; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:14px; line-height:1.6; overflow-x:hidden; }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; z-index:10; background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px); background-size:28px 28px; mask-image:linear-gradient(to bottom,black,transparent 80%); }
+    a { color:inherit; }
+    button, input, textarea { font:inherit; }
+    button { cursor:pointer; }
+    .shell { width:min(1220px,calc(100% - 40px)); margin:auto; }
+    .topbar { height:64px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; position:relative; z-index:1; }
+    .brand { display:flex; align-items:center; gap:10px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+    .pulse { width:9px; height:9px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 5px rgba(203,255,98,.08),0 0 16px var(--lime); }
+    .status { color:var(--muted); font-size:11px; } .status b { color:var(--lime); font-weight:500; }
+    .hero { display:grid; grid-template-columns:1.2fr .8fr; gap:64px; padding:86px 0 70px; align-items:end; position:relative; }
+    .eyebrow { color:var(--lime); font-size:11px; letter-spacing:.11em; text-transform:uppercase; display:flex; gap:9px; align-items:center; }
+    h1,h2,h3,p { margin-top:0; } h1,h2 { font-family:"Noto Serif SC",serif; }
+    h1 { font-size:clamp(44px,6.8vw,88px); letter-spacing:-.055em; line-height:1.06; margin:12px 0 20px; font-weight:900; max-width:780px; }
+    .hero p { color:#b6b5b0; font-size:15px; max-width:620px; }
+    .hero-note { border-left:1px solid var(--lime); padding:20px 0 20px 24px; color:#bbbcb5; }
+    .hero-note strong { display:block; color:var(--ink); font-size:18px; font-weight:500; margin-bottom:6px; }
+    .workflow { border:1px solid var(--line); display:grid; grid-template-columns:repeat(4,1fr); margin-bottom:84px; background:rgba(255,255,255,.015); }
+    .flow { padding:20px; min-height:109px; position:relative; } .flow:not(:last-child){border-right:1px solid var(--line)}
+    .flow::before { content:attr(data-n); color:var(--lime); font-size:11px; }
+    .flow b { display:block; margin:7px 0 2px; font-size:15px; font-weight:500; }.flow span{font-size:11px;color:var(--muted)}
+    section { scroll-margin-top:20px; margin-bottom:72px; }
+    .section-head { display:flex; justify-content:space-between; gap:22px; padding:18px 0; border-top:1px solid var(--line); align-items:baseline; }
+    h2 { margin:0; font-size:clamp(28px,4vw,43px); letter-spacing:-.04em; }.section-head p { margin:0; color:var(--muted); font-size:12px; max-width:440px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }.card { background:var(--panel); border:1px solid var(--line); padding:24px; min-width:0; position:relative; }
+    .card h3 { font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:#c7c9c0; font-weight:500; margin-bottom:16px; }.hint { color:var(--muted); font-size:11px; }
+    textarea { width:100%; resize:vertical; background:#0b0e0d; color:var(--ink); border:1px solid var(--line); border-radius:2px; padding:14px; min-height:124px; outline:none; transition:border-color .2s; line-height:1.7; } textarea:focus{border-color:var(--lime)}
+    .token-line { display:flex; flex-wrap:wrap; gap:7px; min-height:90px; padding:14px 0; }.token { background:rgba(99,215,255,.09); border:1px solid rgba(99,215,255,.31); color:#b4edff; padding:4px 7px; border-radius:2px; font-size:12px; animation:pop .25s both; }
+    @keyframes pop { from{transform:scale(.86);opacity:0} to{transform:scale(1);opacity:1} }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); }.metric{background:var(--panel2); padding:13px}.metric b{display:block;font-size:22px;font-weight:500;color:var(--lime)}.metric span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .code { background:#090b0a; border:1px solid var(--line); padding:14px; color:#b9c4bd; font-size:11px; white-space:pre-wrap; overflow:auto; }.code .cyan{color:var(--blue)}.code .lime{color:var(--lime)}.code .orange{color:var(--orange)}
+    .control { display:grid; grid-template-columns:120px 1fr 60px; gap:12px; align-items:center; margin:13px 0; }.control label { color:#c8c9c3; font-size:12px; }.value { text-align:right; color:var(--lime); font-size:12px; }
+    input[type="range"] { width:100%; accent-color:var(--lime); }.budget { margin:26px 0 15px; }.budget-bar { height:72px; display:flex; overflow:hidden; border:1px solid rgba(255,255,255,.22); background:#090b0a; }.slice { min-width:2px; display:flex; align-items:end; justify-content:center; padding:7px; color:#07100a; font-size:10px; font-weight:600; transition:width .25s ease,opacity .25s; overflow:hidden; white-space:nowrap; }.system{background:var(--orange)}.history{background:var(--blue)}.rag{background:var(--yellow)}.output{background:var(--lime)}.free{background:#222724;color:#aaa}
+    .legend { display:flex; flex-wrap:wrap; gap:12px; color:var(--muted); font-size:10px; }.legend i{display:inline-block;width:8px;height:8px;margin-right:5px}.alert { margin-top:19px; padding:11px 13px; border-left:2px solid var(--lime); background:rgba(203,255,98,.06); color:#c7c9c2; font-size:12px; }.alert.bad{border-color:var(--red);background:rgba(255,101,116,.08)}
+    .attention { display:flex; gap:4px; height:105px; padding:12px 0 10px; align-items:end; }.attn-cell { flex:1; min-width:7px; background:var(--blue); opacity:.22; border-top:2px solid var(--blue); transition:.2s; position:relative; }.attn-cell:hover,.attn-cell.chosen { opacity:1; background:var(--orange); border-color:var(--orange); }.attn-cell.chosen::after { content:attr(data-label); position:absolute; width:100px; bottom:100%; left:50%; transform:translateX(-50%); font-size:10px; color:var(--orange); text-align:center; margin-bottom:4px; }
+    .position-output { min-height:52px; color:#c5c6bf; font-size:12px; }.position-output b{color:var(--orange)}
+    .sampling-layout { display:grid; grid-template-columns:.8fr 1.2fr; gap:16px; }.candidate { display:grid; grid-template-columns:70px 1fr 50px; gap:9px; align-items:center; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:12px; }.bar { height:9px; background:#222725; position:relative; overflow:hidden; }.bar i{display:block;height:100%;background:var(--blue);transition:width .2s}.candidate.excluded{opacity:.27}.candidate.kept .bar i{background:var(--lime)}.candidate .pct{text-align:right;color:var(--muted)}
+    .decision { display:flex; align-items:center; justify-content:space-between; background:#0b0e0d; border:1px solid var(--line); padding:17px; margin-top:18px; gap:15px; }.decision span{font-size:12px;color:var(--muted)}.decision strong{color:var(--lime);font-size:17px;font-weight:500}.btn { border:1px solid var(--lime); color:#10150e; background:var(--lime); padding:10px 13px; font-size:11px; transition:.2s; }.btn:hover{background:#efffc1;transform:translateY(-1px)}
+    .chips { display:flex; flex-wrap:wrap; gap:7px; min-height:34px; padding-top:10px; }.chip { border:1px solid rgba(203,255,98,.35); color:var(--lime); padding:3px 6px; font-size:11px; }
+    .callout { background:linear-gradient(110deg,rgba(203,255,98,.09),rgba(99,215,255,.04)); border:1px solid rgba(203,255,98,.26); padding:24px; display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center; }.callout h3{font-family:"Noto Serif SC",serif;font-size:23px;letter-spacing:-.03em;margin-bottom:4px}.callout p{margin:0;color:#b5b8af;font-size:12px}.foot{border-top:1px solid var(--line);padding:30px 0 55px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:20px}
+    @media(max-width:760px){ .shell{width:min(100% - 28px,1220px)} .hero,.grid,.sampling-layout{grid-template-columns:1fr;gap:28px}.hero{padding:54px 0}.workflow{grid-template-columns:1fr 1fr;margin-bottom:54px}.flow:nth-child(2){border-right:0}.flow:nth-child(-n+2){border-bottom:1px solid var(--line)}.section-head{display:block}.section-head p{margin-top:8px}.control{grid-template-columns:94px 1fr 51px}.metrics{grid-template-columns:1fr}.foot{display:block}.foot>*+*{margin-top:10px}.callout{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><div class="brand"><i class="pulse"></i> LLM Runtime Lab</div><div class="status"><b>●</b> local simulation / no API calls</div></header>
+
+    <section class="hero">
+      <div><div class="eyebrow">01 / 开发者交互速览</div><h1>看见一次<br><em>LLM 调用</em><br>如何发生。</h1><p>大模型并不“直接输出答案”。它持续把上下文编码为数字、给下一个 Token 打分，再按一组规则选出下一个片段。试着拧动下面的参数，亲手看见这条链路。</p></div>
+      <aside class="hero-note"><strong>一条调用，三个问题</strong>输入被切成了什么？窗口还剩多少？下一个 Token 为什么是它？</aside>
+    </section>
+
+    <nav class="workflow" aria-label="核心机制">
+      <a class="flow" data-n="01" href="#token"><b>Tokenize</b><span>文本 → 离散片段</span></a>
+      <a class="flow" data-n="02" href="#context"><b>Budget</b><span>上下文容量分配</span></a>
+      <a class="flow" data-n="03" href="#attention"><b>Attend</b><span>位置也会影响利用率</span></a>
+      <a class="flow" data-n="04" href="#sampling"><b>Decode</b><span>分数 → 概率 → 选择</span></a>
+    </nav>
+
+    <section id="token">
+      <header class="section-head"><h2>01. Token 不是字符，也不是词。</h2><p>Tokenizer 用子词把输入拆成模型能处理的离散 ID。不同模型、不同词表，切法和成本都可能变。</p></header>
+      <div class="grid">
+        <article class="card"><h3>输入试验台</h3><textarea id="token-input" aria-label="要切分的文本">你好，我在实现一个 RAG API：请返回 JSON，并解释 token budget。</textarea><div id="token-output" class="token-line" aria-live="polite"></div><div class="metrics"><div class="metric"><b id="token-count">0</b><span>模拟 tokens</span></div><div class="metric"><b id="char-count">0</b><span>characters</span></div><div class="metric"><b id="ratio">—</b><span>chars / token</span></div></div></article>
+        <article class="card"><h3>模型真正看到的形状</h3><div class="code"><span class="cyan">messages</span> = [
+  { <span class="orange">role</span>: <span class="lime">"system"</span>, content: "..." },
+  { <span class="orange">role</span>: <span class="lime">"user"</span>, content: "你的输入" }
+]
+
+<span class="cyan">token_ids</span> = [ 101, 4930, 11, ... ]
+<span class="cyan">next_token</span> = model(token_ids)</div><p class="hint" style="margin-top:16px">这里是教学用的近似分词，不是任何供应商的官方计数器。生产环境请读 API 的 <code>usage</code> 或用官方 tokenizer；工具 schema、消息边界等不可见 Token 同样占用窗口。</p></article>
+      </div>
+    </section>
+
+    <section id="context">
+      <header class="section-head"><h2>02. 窗口是共享预算，不是输入上限。</h2><p>System Prompt、工具 schema、历史消息、RAG 片段与可见输出，共用一次调用的容量。拖动每一项，观察何时无法生成。</p></header>
+      <div class="grid">
+        <article class="card"><h3>请求构成</h3>
+          <div class="control"><label for="window">context window</label><input id="window" type="range" min="2048" max="32768" step="1024" value="16384"><output class="value" id="window-v">16,384</output></div>
+          <div class="control"><label for="system">system + tools</label><input id="system" type="range" min="0" max="8000" step="128" value="2048"><output class="value" id="system-v"></output></div>
+          <div class="control"><label for="history">history</label><input id="history" type="range" min="0" max="10000" step="128" value="3072"><output class="value" id="history-v"></output></div>
+          <div class="control"><label for="rag">RAG context</label><input id="rag" type="range" min="0" max="16000" step="128" value="4096"><output class="value" id="rag-v"></output></div>
+          <div class="control"><label for="output">max output</label><input id="output" type="range" min="128" max="10000" step="128" value="2048"><output class="value" id="output-v"></output></div>
+        </article>
+        <article class="card"><h3>容量快照</h3><div class="budget-bar" id="budget-bar" aria-label="上下文窗口预算条"><div class="slice system">SYS</div><div class="slice history">HISTORY</div><div class="slice rag">RAG</div><div class="slice output">OUTPUT</div><div class="slice free">FREE</div></div><div class="legend"><span><i class="system"></i>固定提示 / tools</span><span><i class="history"></i>历史</span><span><i class="rag"></i>检索</span><span><i class="output"></i>生成预留</span></div><div class="metrics" style="margin-top:20px"><div class="metric"><b id="input-total">—</b><span>input tokens</span></div><div class="metric"><b id="remaining">—</b><span>remaining</span></div><div class="metric"><b id="safe">—</b><span>status</span></div></div><div id="budget-alert" class="alert"></div></article>
+      </div>
+    </section>
+
+    <section id="attention">
+      <header class="section-head"><h2>03. 塞进窗口，不等于被同等利用。</h2><p>长上下文常有“中间丢失”：开头与结尾的信息更容易被召回。点击一条约束，体验它在不同位置的可见性。</p></header>
+      <div class="grid"><article class="card"><h3>上下文位置热力</h3><div id="attention-map" class="attention" aria-label="上下文注意力位置示意"></div><div id="position-output" class="position-output">选择一个位置，查看约束被模型利用的相对风险。</div><div class="hint">示意曲线，不代表任何具体模型的注意力权重。实际效果受任务、模型、提示词与检索质量共同影响。</div></article><article class="card"><h3>工程上的优先级</h3><div class="code"><span class="orange">// 更可控的拼装顺序</span>
+<span class="cyan">prefix</span>   = system + stable_tools
+<span class="cyan">context</span>  = reranked_topK + dedupe
+<span class="cyan">suffix</span>   = user_task + output_contract
+
+<span class="orange">// 关键约束靠近任务与输出点</span>
+<span class="lime">"只输出符合 schema 的 JSON"</span></div><p class="hint" style="margin-top:16px">先减少无关 Top-K、去重、摘要或裁剪历史。窗口不够时，拆分为两阶段任务，通常比盲目扩大上下文更可控。</p></article></div>
+    </section>
+
+    <section id="sampling">
+      <header class="section-head"><h2>04. Logits 不是概率，参数决定“抽签池”。</h2><p>模型先为所有候选打分。Temperature 改变分布形状，Top-p 与 Top-k 决定哪些候选还能参与采样。</p></header>
+      <div class="card"><div class="sampling-layout"><div><h3>解码控制</h3><div class="control"><label for="temp">temperature</label><input id="temp" type="range" min="0.1" max="2" step="0.1" value="1"><output class="value" id="temp-v">1.0</output></div><div class="control"><label for="topp">top-p</label><input id="topp" type="range" min="0.1" max="1" step="0.05" value="0.95"><output class="value" id="topp-v">0.95</output></div><div class="control"><label for="topk">top-k</label><input id="topk" type="range" min="1" max="5" step="1" value="5"><output class="value" id="topk-v">5</output></div><p class="hint" style="margin-top:21px">当前任务：补全“今天天气真 __”。候选分数是固定示例，实际模型每一步都会重新计算 logits。</p></div><div><h3>softmax 后的候选分布</h3><div id="candidate-list"></div><div class="decision"><span>本次采样结果<br><strong id="picked">等待采样</strong></span><button id="sample-btn" class="btn">采样下一个 Token ↗</button></div><div class="chips" id="generation" aria-live="polite"></div></div></div></div>
+    </section>
+
+    <aside class="callout"><div><h3>从实验室回到生产。</h3><p>记录 model version、输入／缓存／推理／输出 Token、上下文裁剪策略和采样参数；结构化任务还需要 schema 校验、截断检测与可重试策略。</p></div><a class="btn" target="_blank" rel="noopener" href="https://javaguide.cn/ai/llm-basis/llm-operation-mechanism.html">阅读原文 ↗</a></aside>
+    <footer class="foot"><span>LLM RUNTIME LAB / interactive explainer</span><span>Based on JavaGuide’s “LLM 运行机制” · 教学模拟，不调用模型 API</span></footer>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const format = n => Number(n).toLocaleString('zh-CN');
+
+    // Intentional approximation: visualizes subword behavior without claiming vendor-accurate counts.
+    const known = ['RAG','API','JSON','token','budget','你好','我是','大模型','上下文','temperature','Top-p','Top-k','System Prompt','工具调用'];
+    function tokenize(text) {
+      const parts = []; let i = 0;
+      while (i < text.length) {
+        const match = known.find(k => text.slice(i).toLowerCase().startsWith(k.toLowerCase()));
+        if (match) { parts.push(text.slice(i, i + match.length)); i += match.length; continue; }
+        const char = text[i];
+        if (/\s/.test(char)) { i++; continue; }
+        if (/[A-Za-z0-9_]/.test(char)) { const m = text.slice(i).match(/^[A-Za-z0-9_]+/); parts.push(m[0].slice(0, 4)); i += m[0].slice(0,4).length; continue; }
+        parts.push(char); i++;
+      } return parts;
+    }
+    function renderTokens() { const text = $('token-input').value; const tokens = tokenize(text); $('token-output').innerHTML = tokens.map((t,i) => `<span class="token" style="animation-delay:${Math.min(i*12,180)}ms">${t.replace(/</g,'&lt;')}</span>`).join(''); $('token-count').textContent = tokens.length; $('char-count').textContent = [...text].length; $('ratio').textContent = tokens.length ? ([...text].length / tokens.length).toFixed(1) : '—'; }
+    $('token-input').addEventListener('input', renderTokens); renderTokens();
+
+    const budgetIds = ['window','system','history','rag','output'];
+    function updateBudget() { const v = Object.fromEntries(budgetIds.map(id => [id, +$(id).value])); budgetIds.forEach(id => $(id+'-v').textContent = format(v[id])); const input = v.system+v.history+v.rag, total=input+v.output, free=Math.max(0,v.window-total), overflow=Math.max(0,total-v.window); $('input-total').textContent=format(input); $('remaining').textContent=overflow ? '−'+format(overflow) : format(free); $('safe').textContent=overflow?'OVERFLOW':'OK'; $('safe').style.color=overflow?'var(--red)':'var(--lime)'; const segments=[['system',v.system],['history',v.history],['rag',v.rag],['output',v.output],['free',free]]; segments.forEach(([id,n])=>{ const node=document.querySelector('.slice.'+id); node.style.width=(n/v.window*100)+'%'; node.style.display=n?'flex':'none'; }); const alert=$('budget-alert'); alert.className='alert'+(overflow?' bad':''); alert.textContent=overflow ? `无法为输出留出预算：请求超出窗口 ${format(overflow)} tokens。优先减少 RAG Top-K 或历史，而不是仅把 max output 设为 0。` : `预算成立：window (${format(v.window)}) ≥ input (${format(input)}) + max output (${format(v.output)})。建议再为实际计数与格式开销留 10–20% 余量。`; }
+    budgetIds.forEach(id => $(id).addEventListener('input',updateBudget)); updateBudget();
+
+    const map=$('attention-map');
+    for(let i=0;i<19;i++){const bar=document.createElement('button'); const edge=Math.min(i,18-i); const score=Math.round(94-edge*8); bar.className='attn-cell'; bar.style.height=(18+score*.7)+'%'; bar.dataset.label=`位置 ${i+1} · 相对可用 ${score}%`; bar.setAttribute('aria-label',bar.dataset.label); bar.addEventListener('click',()=>{document.querySelectorAll('.attn-cell').forEach(x=>x.classList.remove('chosen'));bar.classList.add('chosen'); const zone=i<4?'开头':i>14?'结尾':'中间'; $('position-output').innerHTML=`你把约束放在 <b>${zone}（位置 ${i+1}）</b>。示意可用性约 <b>${score}%</b>。${zone==='中间'?'关键约束更适合靠近任务尾部重复一次，或在检索后重申。':'该位置通常更容易被模型利用，但仍需用真实评测验证。'}`;}); map.appendChild(bar);}
+
+    const candidates=[['好',5.0],['不错',3.2],['棒',2.1],['糟糕',.5],['紫色',-8.0]]; let current=[];
+    function updateSampling(){ const T=+$('temp').value, p=+$('topp').value, k=+$('topk').value; $('temp-v').textContent=T.toFixed(1);$('topp-v').textContent=p.toFixed(2);$('topk-v').textContent=k; const exp=candidates.map(([,z])=>Math.exp(z/T)); const sum=exp.reduce((a,b)=>a+b,0); const base=candidates.map(([name,logit],i)=>({name,logit,p:exp[i]/sum})); let cumulative=0; current=base.map((item,index)=>{cumulative+=item.p; return {...item,keep:index<k && (cumulative-item.p < p || index===0)};}); $('candidate-list').innerHTML=current.map(x=>`<div class="candidate ${x.keep?'kept':'excluded'}"><span>${x.name}</span><div class="bar"><i style="width:${(x.p*100).toFixed(2)}%"></i></div><span class="pct">${(x.p*100).toFixed(2)}%</span></div>`).join(''); }
+    ['temp','topp','topk'].forEach(id=>$(id).addEventListener('input',updateSampling)); updateSampling();
+    $('sample-btn').addEventListener('click',()=>{ const pool=current.filter(x=>x.keep); const total=pool.reduce((s,x)=>s+x.p,0); let r=Math.random()*total; let choice=pool[pool.length-1]; for(const x of pool){r-=x.p;if(r<=0){choice=x;break}} $('picked').textContent=choice.name; const chip=document.createElement('span'); chip.className='chip';chip.textContent=choice.name;$('generation').appendChild(chip); });
+  </script>
+</body>
+</html>
