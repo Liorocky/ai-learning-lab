@@ -1,6 +1,6 @@
 # AI Learning Lab
 
-**在线浏览 → https://liorocky.github.io/ai-learning-lab/**
+**在线浏览 → https://ai.lior.ren/**
 
 把大模型与 AI 工程里容易混淆的机制，做成**可以亲手操作的单页实验**。每个页面都是自包含的 HTML：无依赖、无构建步骤、无后端、不调用任何 API，双击即可打开。
 
@@ -8,7 +8,7 @@
 
 ## 快速开始
 
-直接访问线上版：**https://liorocky.github.io/ai-learning-lab/**
+直接访问线上版：**https://ai.lior.ren/**
 
 本地运行：
 
@@ -32,6 +32,7 @@ ai-learning-lab/
 │       └── pages.yml            # 推送 main 后自动部署 html/ 到 GitHub Pages
 └── html/
     ├── index.html               # 总索引：分类导航 + 搜索
+    ├── CNAME                    # 自定义域名 ai.lior.ren
     ├── _template/               # 新页面的起手模板（不对外展示）
     ├── llm-core/                # 大模型基础机制
     │   └── llm-runtime-lab/
@@ -102,9 +103,22 @@ git push
 
 推送到 `main` 会触发 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)，该工作流把 `html/` 整个目录作为站点根发布到 GitHub Pages，通常 1–2 分钟生效：
 
-**https://liorocky.github.io/ai-learning-lab/**
+**https://ai.lior.ren/**
 
 因为发布根目录就是 `html/`，新增页面只要被索引页登记，推送后即可通过线上地址访问，无需改动任何部署配置。
+
+### 自定义域名
+
+站点绑定在 `ai.lior.ren`，相关配置分两处：
+
+| 位置 | 内容 |
+| --- | --- |
+| 仓库 `html/CNAME` | `ai.lior.ren` —— 告诉 Pages 用哪个域名 |
+| Cloudflare DNS | `CNAME` 记录：`ai` → `liorocky.github.io`，**必须为 DNS only（灰色云）** |
+
+一旦开启橙色的代理状态，Cloudflare 会用自身 IP 应答，GitHub 无法完成域名验证、签不出证书，站点会卡在 `DNS check unsuccessful`。
+
+`liorocky.github.io/ai-learning-lab/` 仍然有效，会自动 301 跳转到自定义域名。
 
 ## License
 
