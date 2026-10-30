@@ -33,6 +33,7 @@ ai-learning-lab/
 └── html/
     ├── index.html               # 总索引：分类导航 + 搜索
     ├── CNAME                    # 自定义域名 ai.lior.ren
+    ├── favicon.svg              # 站点图标（Lucide sparkles，ISC 协议）
     ├── _template/               # 新页面的起手模板（不对外展示）
     ├── llm-core/                # 大模型基础机制
     │   └── llm-runtime-lab/
