@@ -1,13 +1,19 @@
 # AI Learning Lab
 
+**在线浏览 → https://liorocky.github.io/ai-learning-lab/**
+
 把大模型与 AI 工程里容易混淆的机制，做成**可以亲手操作的单页实验**。每个页面都是自包含的 HTML：无依赖、无构建步骤、无后端、不调用任何 API，双击即可打开。
 
 仓库同时也是这些页面的归档目录——按主题分类，持续增补。
 
 ## 快速开始
 
+直接访问线上版：**https://liorocky.github.io/ai-learning-lab/**
+
+本地运行：
+
 ```bash
-git clone <仓库地址>
+git clone https://github.com/Liorocky/ai-learning-lab.git
 cd ai-learning-lab
 ```
 
@@ -21,6 +27,9 @@ cd ai-learning-lab
 ai-learning-lab/
 ├── README.md                    # 本文件：仓库说明与写作规范
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── pages.yml            # 推送 main 后自动部署 html/ 到 GitHub Pages
 └── html/
     ├── index.html               # 总索引：分类导航 + 搜索
     ├── _template/               # 新页面的起手模板（不对外展示）
@@ -88,6 +97,14 @@ git push
 ```
 
 提交信息用 `feat / fix / docs / chore` 前缀，括号里写分类目录名，方便回溯。
+
+### 自动上线
+
+推送到 `main` 会触发 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)，该工作流把 `html/` 整个目录作为站点根发布到 GitHub Pages，通常 1–2 分钟生效：
+
+**https://liorocky.github.io/ai-learning-lab/**
+
+因为发布根目录就是 `html/`，新增页面只要被索引页登记，推送后即可通过线上地址访问，无需改动任何部署配置。
 
 ## License
 
