@@ -1,0 +1,9 @@
+# Shell 脚本必须以 LF 存储，否则 Windows 上 checkout 后 shebang 变成 bash\r 无法执行
+*.sh text eol=lf
+
+# 网页与样式统一 LF，避免 diff 噪音
+*.html text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.js   text eol=lf
