@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="大模型 API 调用工程实践交互实验室：TTFT 与流式、SSE 事件边界、退避与幂等、Token 限流、结构化输出校验。" />
+  <title>LLM API Engineering Lab</title>
+  <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
+  <link rel="mask-icon" href="../../favicon.svg" color="#cbff62" />
+  <link rel="stylesheet" href="../../assets/lab.css" />
+  <style>
+    /* ──────────────────────────────────────────────────────────
+       本页独有的可视化。通用组件见 ../../assets/lab.css
+       ────────────────────────────────────────────────────────── */
+
+    /* 01 首字竞速 */
+    .race { display:grid; gap:16px; }
+    .lane-top { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--muted); margin-bottom:7px; }
+    .lane-top b { color:var(--ink); font-weight:500; font-size:12px; }
+    .lane-track { height:9px; background:#0b0e0d; border:1px solid var(--line); position:relative; }
+    .lane-fill { height:100%; width:0; }
+    .lane-fill.sync { background:rgba(99,215,255,.32); }
+    .lane-fill.stream { background:linear-gradient(90deg,rgba(203,255,98,.45),var(--lime)); }
+    .lane-body { margin-top:8px; min-height:66px; font-size:12px; color:#c6c8c0; background:#090b0a; border:1px solid var(--line); padding:10px 12px; line-height:1.7; white-space:pre-wrap; }
+    .lane-body .wait { color:var(--muted); }
+    .race-legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:13px; font-size:10px; color:var(--muted); }
+    .race-legend i { display:inline-block; width:9px; height:9px; margin-right:5px; vertical-align:-1px; }
+    .lg-sync { background:rgba(99,215,255,.55); }
+    .lg-stream { background:var(--lime); }
+
+    /* 02 SSE 原始流 */
+    .sse-raw { background:#090b0a; border:1px solid var(--line); padding:8px 0; font-size:11px; max-height:264px; overflow:auto; }
+    .sse-line { padding:2px 12px; white-space:pre-wrap; color:#7b857e; border-left:2px solid transparent; }
+    .sse-line.done { color:#b3bcb5; }
+    .sse-line.cur { color:var(--lime); border-left-color:var(--lime); background:rgba(203,255,98,.07); }
+    .sse-line.blank { color:#8e9a90; font-style:italic; }
+    .sse-line.drop { color:var(--red); }
+    .event-log { display:grid; gap:6px; }
+    .ev { border:1px solid var(--line); background:#0b0e0d; padding:7px 9px; font-size:11px; }
+    .ev b { color:var(--blue); font-weight:500; margin-right:8px; }
+    .ev span { color:#c6c8c0; white-space:pre-wrap; }
+    .buffer { font-size:11px; border:1px dashed var(--line); padding:9px 11px; min-height:54px; white-space:pre-wrap; color:#a9b4ad; }
+
+    /* 03 退避甘特 */
+    .gantt { position:relative; margin-top:18px; padding-top:18px; }
+    .grow { display:grid; grid-template-columns:62px 1fr 60px; gap:9px; align-items:center; margin-bottom:7px; font-size:10px; color:var(--muted); }
+    .gtrack { height:11px; background:#0b0e0d; border:1px solid var(--line); position:relative; }
+    .gbar { position:absolute; top:0; bottom:0; background:rgba(255,209,102,.4); border-left:2px solid var(--yellow); }
+    .gbar.over { background:rgba(255,101,116,.35); border-left-color:var(--red); }
+    .gtime { text-align:right; color:var(--lime); }
+    .gtime.over { color:var(--red); }
+    .gdeadline { position:absolute; top:10px; bottom:0; border-left:1px dashed var(--red); }
+    .gdeadline span { position:absolute; top:-15px; left:3px; color:var(--red); font-size:10px; white-space:nowrap; }
+
+    /* 03 幂等 chips */
+    .chip.mute { border-color:var(--line); color:var(--muted); }
+    .chip.dup { border-color:rgba(255,101,116,.42); color:var(--red); }
+
+    /* 04 限流桶 */
+    .bucket { margin-bottom:16px; }
+    .bucket:last-of-type { margin-bottom:0; }
+    .bucket-top { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--muted); margin-bottom:6px; }
+    .bucket-top b { color:var(--ink); font-weight:500; }
+    .bucket-top em { font-style:normal; color:var(--lime); }
+    .bucket-rail { height:15px; background:#0b0e0d; border:1px solid var(--line); position:relative; overflow:hidden; }
+    .bucket-fill { height:100%; width:0; transition:width .22s ease; background:rgba(203,255,98,.75); }
+    .bucket-fill.warn { background:rgba(255,209,102,.8); }
+    .bucket-fill.over { background:rgba(255,101,116,.75); }
+    .bucket-note { font-size:10px; color:var(--muted); margin-top:5px; }
+
+    /* 05 结构化判定 */
+    .mode-row { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:18px; }
+    .btn.ghost.on { background:var(--lime); color:#10150e; }
+    .vrow { display:grid; grid-template-columns:18px 1fr; gap:11px; padding:12px 0; border-top:1px solid var(--line); }
+    .vrow .mark { font-size:12px; line-height:1.6; }
+    .vrow.ok .mark { color:var(--lime); }
+    .vrow.bad .mark { color:var(--red); }
+    .vrow h4 { font-size:12px; font-weight:500; margin:0 0 6px; color:var(--ink); }
+    .vraw { font-size:10px; color:#8fa79c; background:#090b0a; border:1px solid var(--line); padding:7px 9px; white-space:pre-wrap; word-break:break-all; line-height:1.6; }
+    .vwhy { font-size:11px; color:var(--muted); margin-top:6px; }
+    .vwhy b { color:#d2d3cb; font-weight:500; }
+
+    /* 兜底四级 */
+    .fallback { counter-reset:fb; display:grid; gap:10px; }
+    .fb { counter-increment:fb; display:grid; grid-template-columns:24px 1fr; gap:10px; font-size:11px; color:#bfc2ba; line-height:1.7; }
+    .fb::before { content:counter(fb); color:var(--lime); border:1px solid rgba(203,255,98,.34); width:20px; height:20px; display:grid; place-items:center; font-size:10px; }
+    .fb b { color:var(--ink); font-weight:500; }
+
+    /* 按钮不拆字：窄屏下按钮组允许换行，而不是把「下一行」压成竖排 */
+    .btn { white-space:nowrap; }
+    .dec-actions { display:flex; gap:7px; flex-wrap:wrap; }
+
+    /* 响应式：本页样式后加载，需自行覆盖 */
+    @media(max-width:760px) {
+      .grow { grid-template-columns:50px 1fr 54px; }
+      .lane-body { min-height:96px; }
+      .decision { flex-wrap:wrap; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+
+    <header class="topbar">
+      <div class="brand">
+        <a class="back" href="../../index.html" title="返回索引">← 索引</a>
+        <i class="pulse"></i> LLM API Lab
+      </div>
+      <div class="status"><b>●</b> static / no API calls</div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">engineering / 生产调用链路</div>
+        <h1>调通只是起点，<br>线上死于边界。</h1>
+        <p>一次对话请求要穿过八个环节：校验、组装、预算、路由、调用、解析、回写、观测。这里把它压成五个能拖、能踩坑的实验——每一个都对应一类只在生产才会出现的故障。</p>
+      </div>
+      <div class="hero-note">
+        <strong>流式只改首字，不改总时长。</strong>
+        它让等待变短，不让计算变少。所有关于流式的误解，都从这句话开始分岔。
+      </div>
+    </section>
+
+    <div class="workflow">
+      <div class="flow" data-n="01"><b>组装与预算</b><span>上下文装什么，还剩多少额度</span></div>
+      <div class="flow" data-n="02"><b>路由与限流</b><span>选谁、扣几个桶、还能不能发</span></div>
+      <div class="flow" data-n="03"><b>调用与流式</b><span>同步还是流式，边界在哪里</span></div>
+      <div class="flow" data-n="04"><b>解析与回写</b><span>过校验才落库，失败进哪一级</span></div>
+    </div>
+
+    <!-- ── 01 ─────────────────────────────────────────────── -->
+    <section id="ttft">
+      <header class="section-head">
+        <h2>01. 同步与流式的差别，只在第一个字。</h2>
+        <p>拖三个参数，再点播放：左边走同步，右边走流式，同一个时钟。盯两条进度条的总长度，而不是谁先出现。</p>
+      </header>
+
+      <div class="grid">
+        <article class="card">
+          <h3>这次调用要多久</h3>
+
+          <div class="control">
+            <label for="ttft-n">生成 Token 数</label>
+            <input id="ttft-n" type="range" min="200" max="3000" step="50" value="800">
+            <output class="value" id="ttft-n-v">800</output>
+          </div>
+          <div class="control">
+            <label for="ttft-per">每 Token 耗时</label>
+            <input id="ttft-per" type="range" min="8" max="60" step="1" value="32">
+            <output class="value" id="ttft-per-v">32ms</output>
+          </div>
+          <div class="control">
+            <label for="ttft-first">首字延迟</label>
+            <input id="ttft-first" type="range" min="150" max="2500" step="50" value="420">
+            <output class="value" id="ttft-first-v">420ms</output>
+          </div>
+
+          <div class="metrics" style="margin-top:20px">
+            <div class="metric"><b id="m-sync">—</b><span>同步首字</span></div>
+            <div class="metric"><b id="m-stream">—</b><span>流式首字</span></div>
+            <div class="metric"><b id="m-total">—</b><span>总生成耗时</span></div>
+          </div>
+
+          <div class="decision">
+            <span>同一份答案，两种交付方式<br><strong id="ttft-gap">等待播放</strong></span>
+            <button class="btn" id="ttft-play">播放对照 ↗</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>两个用户看到什么</h3>
+          <div class="race">
+            <div>
+              <div class="lane-top"><b>同步返回</b><span id="sync-state">待播放</span></div>
+              <div class="lane-track"><div class="lane-fill sync" id="sync-fill"></div></div>
+              <div class="lane-body" id="sync-body">点播放，观察左边这条卡片有多久是空白的。</div>
+            </div>
+            <div>
+              <div class="lane-top"><b>流式返回</b><span id="stream-state">待播放</span></div>
+              <div class="lane-track"><div class="lane-fill stream" id="stream-fill"></div></div>
+              <div class="lane-body" id="stream-body">同一个模型，同一份答案，只是片段到得早。</div>
+            </div>
+          </div>
+          <div class="race-legend">
+            <span><i class="lg-sync"></i>同步进度</span>
+            <span><i class="lg-stream"></i>流式进度</span>
+            <span>两条都跑满 = 用时相同</span>
+          </div>
+          <div class="alert" id="ttft-alert">—</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── 02 ─────────────────────────────────────────────── -->
+    <section id="sse">
+      <header class="section-head">
+        <h2>02. 事件的边界是空行，不是换行。</h2>
+        <p>逐行推进这段 <code>text/event-stream</code>。看解析器走到哪一行才敢派发事件，以及少一个前缀、多一个空行分别丢掉什么。</p>
+      </header>
+
+      <div class="grid">
+        <article class="card">
+          <h3>原始字节流</h3>
+          <div class="mode-row" style="margin-bottom:12px">
+            <button class="btn ghost on" data-sse="ok">规范写法</button>
+            <button class="btn ghost" data-sse="prefix">漏掉 data: 前缀</button>
+            <button class="btn ghost" data-sse="blank">中间多一个空行</button>
+          </div>
+          <div class="sse-raw" id="sse-raw"></div>
+          <div class="decision">
+            <span>一行一行读，空行才结算<br><strong id="sse-pos">0 / 0 行</strong></span>
+            <span class="dec-actions">
+              <button class="btn" id="sse-next">下一行 ↗</button>
+              <button class="btn ghost" id="sse-auto">自动</button>
+              <button class="btn ghost" id="sse-reset">重置</button>
+            </span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>解析器内部</h3>
+          <p class="hint" style="margin-bottom:9px">正在累积的事件——还没到空行，一切都不算数</p>
+          <div class="buffer" id="sse-buffer">（空）</div>
+
+          <div class="metrics" style="margin:16px 0">
+            <div class="metric"><b id="m-events">0</b><span>已派发事件</span></div>
+            <div class="metric"><b id="m-chars">0</b><span>拼回字符</span></div>
+            <div class="metric"><b id="m-dropped">0</b><span>被丢弃行</span></div>
+          </div>
+
+          <p class="hint" style="margin-bottom:7px">已派发</p>
+          <div class="event-log" id="sse-events"><div class="hint">还没有事件。继续推进。</div></div>
+          <div class="alert" id="sse-alert">—</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── 03 ─────────────────────────────────────────────── -->
+    <section id="retry">
+      <header class="section-head">
+        <h2>03. 重试没有截止时间，会变成故障。</h2>
+        <p>左卡调退避与预算，看第几次重试已经越过 SLA；右卡连点发送，看幂等 Key 拦下几次真实调用。</p>
+      </header>
+
+      <div class="grid">
+        <article class="card">
+          <h3>退避曲线</h3>
+          <div class="control">
+            <label for="rt-base">基础延迟</label>
+            <input id="rt-base" type="range" min="100" max="1500" step="50" value="600">
+            <output class="value" id="rt-base-v">600ms</output>
+          </div>
+          <div class="control">
+            <label for="rt-n">最大重试</label>
+            <input id="rt-n" type="range" min="0" max="6" step="1" value="5">
+            <output class="value" id="rt-n-v">5</output>
+          </div>
+          <div class="control">
+            <label for="rt-jit">抖动比例</label>
+            <input id="rt-jit" type="range" min="0" max="100" step="10" value="40">
+            <output class="value" id="rt-jit-v">40%</output>
+          </div>
+          <div class="control">
+            <label for="rt-deadline">总预算</label>
+            <input id="rt-deadline" type="range" min="5" max="40" step="1" value="15">
+            <output class="value" id="rt-deadline-v">15s</output>
+          </div>
+
+          <div class="metrics" style="margin-top:18px">
+            <div class="metric"><b id="m-retry-fit">—</b><span>预算内重试</span></div>
+            <div class="metric"><b id="m-retry-last">—</b><span>末次发出时刻</span></div>
+            <div class="metric"><b id="m-retry-wait">—</b><span>最坏总等待</span></div>
+          </div>
+
+          <div class="gantt" id="gantt"></div>
+          <div class="alert" id="retry-alert">—</div>
+          <p class="hint" style="margin:9px 0 0">抖动按期望值取值，实际是区间；曲线为示意，不对应任何具体模型。</p>
+        </article>
+
+        <article class="card">
+          <h3>同一条消息点了三次</h3>
+          <p class="hint">用户嫌慢连点重发。开关幂等记录，看模型真正被调用几次、落库几条、有没有留下两个"最终答案"污染下一轮上下文。</p>
+
+          <div class="mode-row" style="margin:14px 0">
+            <button class="btn ghost on" id="idem-toggle">幂等 Key：已开启</button>
+          </div>
+
+          <div class="metrics">
+            <div class="metric"><b id="m-calls">0</b><span>模型调用</span></div>
+            <div class="metric"><b id="m-writes">0</b><span>落库记录</span></div>
+            <div class="metric"><b id="m-saved">0</b><span>被拦下</span></div>
+          </div>
+
+          <div class="decision">
+            <span>业务消息 M-1041 · 用户连点三次是常态<br><strong id="idem-state">等待发送</strong></span>
+            <button class="btn" id="idem-send">发送 ↗</button>
+          </div>
+
+          <div class="chips" id="idem-chips"></div>
+
+          <div class="alert" id="idem-alert">幂等 Key 通常是 <code>tenantId:userId:conversationId:messageId</code>，attempt 只是内部重试，只有一次能成为 final。</div>
+          <p class="hint" style="margin:9px 0 0">占位必须是原子操作（Redis <code>SET NX</code> 或数据库唯一约束），先查再写拦不住并发。</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── 04 ─────────────────────────────────────────────── -->
+    <section id="ratelimit">
+      <header class="section-head">
+        <h2>04. 按 QPS 限流，挡不住大上下文。</h2>
+        <p>供应商给的是两个桶：每分钟请求数和每分钟 Token。拖流量与上下文长度，看哪个桶先见底。</p>
+      </header>
+
+      <div class="grid">
+        <article class="card">
+          <h3>这一分钟的流量</h3>
+          <div class="control">
+            <label for="rl-rpm">请求 / 分钟</label>
+            <input id="rl-rpm" type="range" min="10" max="600" step="10" value="90">
+            <output class="value" id="rl-rpm-v">90</output>
+          </div>
+          <div class="control">
+            <label for="rl-in">输入 Token</label>
+            <input id="rl-in" type="range" min="500" max="80000" step="500" value="8000">
+            <output class="value" id="rl-in-v">8.0k</output>
+          </div>
+          <div class="control">
+            <label for="rl-out">输出 Token</label>
+            <input id="rl-out" type="range" min="100" max="4000" step="100" value="400">
+            <output class="value" id="rl-out-v">400</output>
+          </div>
+          <p class="hint" style="margin:16px 0 0">配额按项目而非单个 Key 计算：这里假设 500 RPM 与 400k TPM，数值为示意。</p>
+          <p class="hint" style="margin:6px 0 0">把输入 Token 拖到 80k 再回头看两个桶：请求数没变，账单量级变了 20 倍。</p>
+          <div class="alert" style="margin-top:14px">同是 1 次请求：500 + 100 Token 与 80k + 8k Token，排队压力差 130 倍。QPS 从来不是成本单位。</div>
+        </article>
+
+        <article class="card">
+          <h3>两个桶，先满的那个说了算</h3>
+
+          <div class="bucket">
+            <div class="bucket-top"><b>请求桶</b><em id="b-req-label">18%</em></div>
+            <div class="bucket-rail"><div class="bucket-fill" id="b-req"></div></div>
+            <div class="bucket-note" id="b-req-note">90 / 500 次</div>
+          </div>
+
+          <div class="bucket">
+            <div class="bucket-top"><b>Token 桶</b><em id="b-tok-label">189%</em></div>
+            <div class="bucket-rail"><div class="bucket-fill over" id="b-tok"></div></div>
+            <div class="bucket-note" id="b-tok-note">756k / 400k</div>
+          </div>
+
+          <div class="metrics" style="margin:20px 0 0">
+            <div class="metric"><b id="m-pass">—</b><span>实际放行 / 分</span></div>
+            <div class="metric"><b id="m-tokmin">—</b><span>每分钟 Token</span></div>
+            <div class="metric"><b id="m-bottleneck">—</b><span>瓶颈</span></div>
+          </div>
+
+          <div class="alert" id="rl-alert">—</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── 05 ─────────────────────────────────────────────── -->
+    <section id="structured">
+      <header class="section-head">
+        <h2>05. 语法合法，不等于字段能用。</h2>
+        <p>五段真实形状的返回，四档约束强度。切换档位看每一段停在哪一关——解析失败要进兜底，脏数据不能进下游。</p>
+      </header>
+
+      <div class="card">
+        <div class="mode-row" id="mode-row">
+          <button class="btn ghost on" data-mode="none">自然语言</button>
+          <button class="btn ghost" data-mode="prompt">Prompt 要求 JSON</button>
+          <button class="btn ghost" data-mode="json">JSON Mode</button>
+          <button class="btn ghost" data-mode="schema">JSON Schema</button>
+        </div>
+
+        <div class="decision" style="margin:0 0 18px">
+          <span>当前档位能安全交给下游的样本<br><strong id="struct-summary">0 / 5</strong></span>
+          <span class="hint" id="struct-note">没有任何程序边界</span>
+        </div>
+
+        <div id="struct-list"></div>
+      </div>
+
+      <div class="grid" style="margin-top:16px">
+        <article class="card">
+          <h3>校验失败之后去哪</h3>
+          <div class="fallback">
+            <div class="fb"><span><b>本地校验</b>：JSON Schema / Jackson 校验字段、类型、必填、枚举。这一步挡掉的是脏数据，不是模型态度。</span></div>
+            <div class="fb"><span><b>轻量修复</b>：只补格式——截断补齐、前后缀剥离，不重新生成业务内容。</span></div>
+            <div class="fb"><span><b>降级 Schema</b>：一个大对象拆成两次小抽取，先分类再抽字段，用复杂度换通过率。</span></div>
+            <div class="fb"><span><b>规则或人工兜底</b>：订单、金融、医疗、法务不要完全交给自动修复。</span></div>
+          </div>
+        </article>
+        <article class="card">
+          <h3>一张 Schema 买到什么</h3>
+          <div class="code"><span class="blue">{
+  "intent"</span>: <span class="lime">"refund_request"</span>,
+  <span class="blue">"confidence"</span>: 0.86,
+  <span class="blue">"entities"</span>: { "order_id": "202605080001" },
+  <span class="blue">"need_human_review"</span>: <span class="orange">false</span>
+}</div>
+          <p class="hint" style="margin-top:12px">有了 Schema，后端才敢假设：<code>intent</code> 是有限枚举、<code>confidence</code> 是数字、<code>order_id</code> 可空但类型稳定、<code>need_human_review</code> 一定存在。</p>
+          <div class="alert">能展示给用户 ≠ 能被程序执行。失败时不要把原始自然语言硬塞给下游。</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── 06 ─────────────────────────────────────────────── -->
+    <section id="concepts">
+      <header class="section-head">
+        <h2>06. 不必精通，但要记得它存在。</h2>
+        <p>四列固定语义：概念 / 字段·参数 / 它给你什么 / 什么时候会想起它。第四列写触发场景，不写定义。</p>
+      </header>
+
+      <div class="concept-search">
+        <i>/</i>
+        <input id="concept-q" type="search" placeholder="搜索概念、参数或场景…" aria-label="搜索概念" />
+        <span><b id="concept-count">0</b> 条</span>
+      </div>
+      <div id="concept-list"></div>
+    </section>
+
+    <aside class="callout">
+      <div>
+        <h3>上线前只看四条失败链路。</h3>
+        <p>取消能不能传到供应商；重试有没有被总预算和原子幂等记录约束；RPM、TPM、并发与租户预算是否同时生效；解析失败有没有明确的失败状态。任何一条缺了，账单和重复执行迟早来找你。</p>
+      </div>
+      <a class="btn" target="_blank" rel="noopener" href="https://javaguide.cn/ai/llm-basis/llm-api-engineering.html">阅读原文 ↗</a>
+    </aside>
+
+    <footer class="foot">
+      <span>AI Learning Lab · 教学模拟，不调用任何外部 API。</span>
+      <span><a href="../../index.html">返回索引</a></span>
+    </footer>
+  </main>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   01 · 同步 vs 流式：同一个时钟，两条进度
+   ══════════════════════════════════════════════════════════════ */
+const ANSWER = '根因是数据库连接池被慢查询占满：先把 maxWait 调小，再给慢查询加超时，最后补一个连接泄漏的告警。';
+const el = id => document.getElementById(id);
+
+const tN = el('ttft-n'), tPer = el('ttft-per'), tFirst = el('ttft-first');
+const PLAY_MS = 3600;
+let rafId = 0;
+
+function ttftParams() {
+  const n = +tN.value, per = +tPer.value, first = +tFirst.value;
+  return { n, per, first, total: first + n * per };
+}
+const secs = ms => (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + 's';
+
+function paintTtft() {
+  const p = ttftParams();
+  el('ttft-n-v').textContent = p.n;
+  el('ttft-per-v').textContent = p.per + 'ms';
+  el('ttft-first-v').textContent = p.first + 'ms';
+  el('m-sync').textContent = secs(p.total);
+  el('m-stream').textContent = secs(p.first);
+  el('m-total').textContent = secs(p.total);
+  const gap = (p.total - p.first) / 1000;
+  el('ttft-gap').textContent = '首字差 ' + gap.toFixed(1) + 's';
+  el('ttft-alert').textContent = '首字差 ' + gap.toFixed(1) + 's，而两条进度条同时跑满：流式没有少算一个 Token，只是把第一个片段提前交给你。';
+}
+
+function resetRace(msg) {
+  cancelAnimationFrame(rafId);
+  el('sync-fill').style.width = '0%';
+  el('stream-fill').style.width = '0%';
+  el('sync-state').textContent = '待播放';
+  el('stream-state').textContent = '待播放';
+  el('sync-body').textContent = msg;
+  el('stream-body').textContent = msg;
+}
+
+function playRace() {
+  const p = ttftParams();
+  cancelAnimationFrame(rafId);
+  el('sync-body').innerHTML = '<span class="wait">等待完整结果…</span>';
+  el('stream-body').innerHTML = '<span class="wait">等待首字…</span>';
+  el('sync-state').textContent = '生成中';
+  el('stream-state').textContent = '生成中';
+
+  const t0 = performance.now();
+  const tick = now => {
+    const modelT = Math.min(p.total, (now - t0) / PLAY_MS * p.total);
+    const prog = modelT / p.total;
+    el('sync-fill').style.width = (prog * 100).toFixed(1) + '%';
+    el('stream-fill').style.width = (prog * 100).toFixed(1) + '%';
+
+    if (modelT >= p.total) {
+      el('sync-body').textContent = ANSWER;
+      el('stream-body').textContent = ANSWER;
+      el('sync-state').textContent = '完成 · ' + secs(p.total);
+      el('stream-state').textContent = '完成 · ' + secs(p.total);
+      return;
+    }
+
+    el('sync-body').innerHTML = '<span class="wait">等待完整结果… 已生成 ' + Math.round(prog * 100) + '%</span>';
+
+    if (modelT < p.first) {
+      el('stream-body').innerHTML = '<span class="wait">等待首字…</span>';
+    } else {
+      const cut = Math.ceil((modelT - p.first) / (p.total - p.first) * ANSWER.length);
+      el('stream-body').textContent = ANSWER.slice(0, cut);
+      el('stream-state').textContent = '已收到首字';
+    }
+    rafId = requestAnimationFrame(tick);
+  };
+  rafId = requestAnimationFrame(tick);
+}
+
+[tN, tPer, tFirst].forEach(r => r.addEventListener('input', () => {
+  paintTtft();
+  resetRace('参数已变，重新播放看差异。');
+}));
+el('ttft-play').addEventListener('click', playRace);
+paintTtft();
+
+/* ══════════════════════════════════════════════════════════════
+   02 · SSE 逐行解析
+   ══════════════════════════════════════════════════════════════ */
+const SSE = {
+  ok: [
+    'event: token', 'data: 根因是连接池', 'data: 被慢查询占满', '',
+    'event: token', 'data: 建议先调小 maxWait。', '',
+    'event: done', 'data: finish_reason=stop', ''
+  ],
+  prefix: [
+    'event: token', 'data: 根因是连接池', '被慢查询占满', '',
+    'event: token', 'data: 建议先调小 maxWait。', '',
+    'event: done', 'data: finish_reason=stop', ''
+  ],
+  blank: [
+    'event: token', 'data: 根因是连接池', '', 'data: 被慢查询占满', '',
+    'event: token', 'data: 建议先调小 maxWait。', '',
+    'event: done', 'data: finish_reason=stop', ''
+  ]
+};
+const SSE_NOTE = {
+  ok: '规范写法下，两行 data: 会被拼成一段带换行的正文——这就是多行 Markdown 能穿过 SSE 的原因。',
+  prefix: '第二行少了 data: 前缀，解析器不认识这个字段，直接丢弃：正文少了一行，而空行派发时不会报任何错。手写 SSE 最容易漏的就是这个前缀。',
+  blank: '多出来的空行把事件提前结算：后半段变成一个无名事件，丢了 id 与 event 名，前端只能靠顺序猜。'
+};
+
+let sseMode = 'ok', sseLines = SSE.ok, sseIdx = 0, sseCur = null, sseEvents = [], sseDropped = 0, sseTimer = 0;
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function renderSseRaw() {
+  el('sse-raw').innerHTML = sseLines.map((line, i) => {
+    let cls = '';
+    if (i < sseIdx) cls = 'done';
+    if (i === sseIdx) cls = 'cur';
+    if (line === '') cls += ' blank';
+    else if (line.indexOf(':') === -1) cls += ' drop';
+    const text = line === '' ? '⏎ 空行（事件边界）' : line;
+    return '<div class="sse-line' + cls + '">' + esc(text) + '</div>';
+  }).join('');
+}
+
+function sseReset() {
+  clearInterval(sseTimer);
+  el('sse-auto').classList.remove('on');
+  sseLines = SSE[sseMode];
+  sseIdx = 0; sseCur = null; sseEvents = []; sseDropped = 0;
+  el('sse-pos').textContent = '0 / ' + sseLines.length + ' 行';
+  el('sse-buffer').textContent = '（空）';
+  el('sse-events').innerHTML = '<div class="hint">还没有事件。继续推进。</div>';
+  el('m-events').textContent = '0';
+  el('m-chars').textContent = '0';
+  el('m-dropped').textContent = '0';
+  el('sse-alert').textContent = SSE_NOTE[sseMode];
+  renderSseRaw();
+}
+
+function sseStep() {
+  if (sseIdx >= sseLines.length) { clearInterval(sseTimer); return false; }
+  const line = sseLines[sseIdx];
+
+  if (line === '') {
+    if (sseCur && sseCur.data.length) {
+      sseEvents.push({ ev: sseCur.ev || 'message', text: sseCur.data.join('\n') });
+    }
+    sseCur = null;
+  } else if (line.charAt(0) === ':') {
+    /* 注释行，仅作心跳，不产生事件 */
+  } else {
+    const cut = line.indexOf(':');
+    let field, value;
+    if (cut === -1) { field = line; value = ''; }
+    else {
+      field = line.slice(0, cut);
+      value = line.slice(cut + 1);
+      if (value.charAt(0) === ' ') value = value.slice(1);
+    }
+    if (field === 'data') {
+      if (!sseCur) sseCur = { ev: '', data: [] };
+      sseCur.data.push(value);
+    } else if (field === 'event') {
+      if (!sseCur) sseCur = { ev: '', data: [] };
+      sseCur.ev = value;
+    } else {
+      sseDropped++;
+    }
+  }
+
+  sseIdx++;
+  paintSse();
+  return sseIdx < sseLines.length;
+}
+
+function paintSse() {
+  el('sse-pos').textContent = sseIdx + ' / ' + sseLines.length + ' 行';
+
+  if (!sseCur) {
+    el('sse-buffer').textContent = '（空）';
+  } else {
+    el('sse-buffer').textContent =
+      'event: ' + (sseCur.ev || '(默认 message)') + '\n' +
+      'data: ' + sseCur.data.join('\n      ') + (sseCur.data.length > 1 ? '\n（多行 data 按 \\n 拼接）' : '');
+  }
+
+  if (sseEvents.length) {
+    el('sse-events').innerHTML = sseEvents.map(e =>
+      '<div class="ev"><b>' + esc(e.ev) + '</b><span>' + esc(e.text) + '</span></div>'
+    ).join('');
+  }
+  el('m-events').textContent = sseEvents.length;
+  el('m-chars').textContent = sseEvents.reduce((n, e) => n + e.text.length, 0);
+  el('m-dropped').textContent = sseDropped;
+
+  if (sseIdx >= sseLines.length) {
+    el('sse-alert').textContent = sseMode === 'ok'
+      ? '流结束，三个事件都完整。注意结束状态来自 done 事件里的 finish_reason——缺了它，这段内容只能标记为中断。'
+      : SSE_NOTE[sseMode];
+  }
+  renderSseRaw();
+}
+
+document.querySelectorAll('[data-sse]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-sse]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    sseMode = btn.dataset.sse;
+    sseReset();
+  });
+});
+el('sse-next').addEventListener('click', () => { clearInterval(sseTimer); sseStep(); });
+el('sse-auto').addEventListener('click', function () {
+  if (this.classList.contains('on')) { this.classList.remove('on'); clearInterval(sseTimer); return; }
+  this.classList.add('on');
+  sseTimer = setInterval(() => {
+    const more = sseStep();
+    if (!more) { clearInterval(sseTimer); el('sse-auto').classList.remove('on'); }
+  }, 480);
+});
+el('sse-reset').addEventListener('click', sseReset);
+sseReset();
+
+/* ══════════════════════════════════════════════════════════════
+   03 · 退避甘特 + 幂等
+   ══════════════════════════════════════════════════════════════ */
+const rtBase = el('rt-base'), rtNum = el('rt-n'), rtJit = el('rt-jit'), rtDl = el('rt-deadline');
+
+function paintRetry() {
+  const base = +rtBase.value, n = +rtNum.value, jit = +rtJit.value / 100, dl = +rtDl.value;
+  el('rt-base-v').textContent = base + 'ms';
+  el('rt-n-v').textContent = n;
+  el('rt-jit-v').textContent = Math.round(jit * 100) + '%';
+  el('rt-deadline-v').textContent = dl + 's';
+
+  let t = 0;
+  const rows = [];
+  for (let i = 1; i <= n; i++) {
+    const sleep = base * Math.pow(2, i - 1) * (1 + jit / 2) / 1000;
+    const to = t + sleep;
+    rows.push({ i, from: t, to, sleep, over: to > dl });
+    t = to;
+  }
+
+  const span = Math.max(dl, t, 1) * 1.06;
+
+  el('gantt').innerHTML =
+    (rows.length ? rows.map(r =>
+      '<div class="grow"><span>等待 ' + r.i + '</span>' +
+      '<div class="gtrack"><i class="gbar' + (r.over ? ' over' : '') + '" style="left:' +
+      (r.from / span * 100).toFixed(2) + '%;width:' + Math.max((r.to - r.from) / span * 100, 0.8).toFixed(2) + '%"></i></div>' +
+      '<span class="gtime' + (r.over ? ' over' : '') + '">' + r.sleep.toFixed(2) + 's</span></div>'
+    ).join('') : '<div class="hint">最大重试为 0：失败即返回，不做任何等待。</div>') +
+    '<div class="gdeadline" style="left:' + (dl / span * 100).toFixed(2) + '%"><span>SLA ' + dl + 's</span></div>';
+
+  const fit = rows.filter(r => r.to <= dl).length;
+  el('m-retry-fit').textContent = fit + ' / ' + n;
+  el('m-retry-last').textContent = n ? t.toFixed(2) + 's' : '0s';
+  el('m-retry-wait').textContent = t.toFixed(2) + 's';
+
+  if (!n) {
+    el('retry-alert').textContent = '没有重试：一次失败就是失败。对后台任务太脆，对用户交互反而诚实。';
+  } else if (t > dl) {
+    el('retry-alert').textContent = '末次重试在 ' + t.toFixed(2) + 's 才发出，已经越过 ' + dl + 's 预算：这段等待换不来成功，只让用户多等 ' + (t - dl).toFixed(1) + 's。上限该压到 ' + Math.max(fit, 1) + ' 次以内。';
+  } else {
+    el('retry-alert').textContent = '全部重试都落在预算内：最坏总等待 ' + t.toFixed(2) + 's，还剩 ' + (dl - t).toFixed(1) + 's 余量。抖动让同时失败的客户端错开重发，不会形成第二波尖峰。';
+  }
+}
+
+[rtBase, rtNum, rtJit, rtDl].forEach(r => r.addEventListener('input', paintRetry));
+paintRetry();
+
+let idemOn = true, calls = 0, writes = 0, saved = 0, seq = 0;
+
+function paintIdem() {
+  el('m-calls').textContent = calls;
+  el('m-writes').textContent = writes;
+  el('m-saved').textContent = saved;
+}
+
+el('idem-toggle').addEventListener('click', function () {
+  idemOn = !idemOn;
+  this.textContent = '幂等 Key：' + (idemOn ? '已开启' : '未开启');
+  this.classList.toggle('on', idemOn);
+  calls = 0; writes = 0; saved = 0; seq = 0;
+  el('idem-chips').innerHTML = '';
+  el('idem-state').textContent = '计数已重置';
+  el('idem-alert').textContent = idemOn
+    ? '幂等 Key 通常是 tenantId:userId:conversationId:messageId，attempt 只是内部重试，只有一次能成为 final。'
+    : '没有幂等 Key：每次点击都是一条新业务消息。用户手抖三次，就多三次扣费、三条落库、三个互相矛盾的"最终答案"。';
+  paintIdem();
+});
+
+el('idem-send').addEventListener('click', () => {
+  seq++;
+  const chip = document.createElement('span');
+  if (idemOn && seq > 1) {
+    saved++;
+    chip.className = 'chip mute';
+    chip.textContent = 'P' + seq + ' 命中 M-1041';
+    el('idem-state').textContent = '复用同一份结果';
+  } else {
+    calls++; writes++;
+    chip.className = idemOn ? 'chip' : 'chip dup';
+    chip.textContent = idemOn ? 'A-1 → M-1041' : 'M-' + (1040 + seq) + ' 新消息';
+    el('idem-state').textContent = idemOn ? '已认领，正在生成' : '又生成了一遍';
+  }
+  el('idem-chips').appendChild(chip);
+  paintIdem();
+
+  if (!idemOn && seq >= 3) {
+    el('idem-alert').textContent = '三次点击 = 三次真实调用、三条落库记录。它们会一起进下一轮上下文，Prompt 里出现三个互相矛盾的答案。';
+  }
+  if (idemOn && seq >= 3) {
+    el('idem-alert').textContent = '拦下 ' + saved + ' 次：后两次直接返回同一份结果。只有 A-1 能成为 final，其余 attempt 留作诊断，不参与上下文。';
+  }
+});
+paintIdem();
+
+/* ══════════════════════════════════════════════════════════════
+   04 · 双桶限流
+   ══════════════════════════════════════════════════════════════ */
+const RPM_LIMIT = 500, TPM_LIMIT = 400000;
+const rlRpm = el('rl-rpm'), rlIn = el('rl-in'), rlOut = el('rl-out');
+const kk = v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : String(v);
+
+function paintRate() {
+  const rpm = +rlRpm.value, tin = +rlIn.value, tout = +rlOut.value;
+  el('rl-rpm-v').textContent = rpm;
+  el('rl-in-v').textContent = kk(tin);
+  el('rl-out-v').textContent = tout;
+
+  const per = tin + tout;
+  const reqUse = rpm / RPM_LIMIT * 100;
+  const tokPerMin = rpm * per;
+  const tokUse = tokPerMin / TPM_LIMIT * 100;
+  const passable = Math.min(rpm, Math.floor(TPM_LIMIT / per));
+
+  const paintBar = (id, pct) => {
+    const f = el(id);
+    f.style.width = Math.min(pct, 100).toFixed(1) + '%';
+    f.className = 'bucket-fill' + (pct > 100 ? ' over' : pct > 70 ? ' warn' : '');
+  };
+  paintBar('b-req', reqUse);
+  paintBar('b-tok', tokUse);
+
+  const setLabel = (id, pct) => {
+    const n = el(id);
+    n.textContent = Math.round(pct) + '%';
+    n.style.color = pct > 100 ? 'var(--red)' : pct > 70 ? 'var(--yellow)' : '';
+  };
+  setLabel('b-req-label', reqUse);
+  setLabel('b-tok-label', tokUse);
+  el('b-req-note').textContent = rpm + ' / ' + RPM_LIMIT + ' 次';
+  el('b-tok-note').textContent = kk(tokPerMin) + ' / ' + kk(TPM_LIMIT) + ' token';
+
+  el('m-pass').textContent = passable;
+  el('m-tokmin').textContent = kk(tokPerMin);
+  el('m-bottleneck').textContent = tokUse > reqUse ? 'Token 桶' : '请求桶';
+
+  if (tokUse > 100) {
+    el('rl-alert').textContent = '请求桶才 ' + Math.round(reqUse) + '%，Token 桶已经 ' + Math.round(tokUse) + '%：按 QPS 看这波流量很安全，实际每分钟只有 ' + passable + ' 个请求能过，其余全部 429。限流必须同时看 RPM、TPM、并发、上下文与最大输出。';
+  } else if (reqUse > 90) {
+    el('rl-alert').textContent = '请求桶接近上限。这个区间里加 Token 预算没用，要么排队，要么按租户拆桶。';
+  } else {
+    el('rl-alert').textContent = '两个桶都还有余量，真实瓶颈是 ' + (tokUse > reqUse ? 'Token 桶' : '请求桶') + '。网关要先估算 input + reserved_output 再扣桶，扣不到就排队，别等发出去才发现没额度。';
+  }
+}
+
+[rlRpm, rlIn, rlOut].forEach(r => r.addEventListener('input', paintRate));
+paintRate();
+
+/* ══════════════════════════════════════════════════════════════
+   05 · 约束强度对照
+   ══════════════════════════════════════════════════════════════ */
+const SAMPLES = [
+  { n: '完全合规', raw: '{"intent":"refund_request","confidence":0.86,\n "entities":{"order_id":"202605080001"},"need_human_review":false}', syntax: 'ok', schema: 'ok', why: '', plain: '这一次完全正确，但没有任何东西保证下一次还长这样。' },
+  { n: '前面带一句解释', raw: '好的，这是分析结果：\n{"intent":"refund_request","confidence":0.86, ...}', syntax: 'fail', schema: 'ok', why: '解释文本混在 JSON 前面，JSON.parse 直接抛 Unexpected token', plain: '给人看毫无问题，程序读第一行就崩。' },
+  { n: '流还没结束', raw: '{"intent":"refund', syntax: 'cut', schema: 'cut', why: 'Unexpected end of JSON input——这是断流，不是模型不会写', plain: '屏幕上正在逐字出现，任何时刻去解析都只有半截。' },
+  { n: '枚举与类型漂移', raw: '{"intent":"退款","confidence":"high", ...}', syntax: 'ok', schema: 'fail', why: 'intent 不在枚举内，confidence 是字符串不是数字', plain: '"退款"和"high"人一看就懂，代码一读就错。' },
+  { n: '静默缺字段', raw: '{"intent":"refund_request"}', syntax: 'ok', schema: 'fail', why: 'confidence、entities、need_human_review 全缺失，下游直接 NPE', plain: '少一个字段不会报错，直到下游取它的那一刻。' }
+];
+
+let structMode = 'none';
+
+function verdict(mode, s) {
+  if (mode === 'none') return { ok: false, why: s.plain + ' 没有程序边界，这段文本只能拿去展示，任何字段访问都可能抛异常。' };
+  if (s.syntax === 'cut') return { ok: false, why: s.why + '。约束再强也救不了没结束的流，增量阶段只该展示，不该解析。' };
+  if (mode === 'prompt') {
+    return s.syntax === 'ok'
+      ? { ok: true, why: '语法过了，字段合不合规没人管——枚举乱写、字段缺失都会原样进下游。' }
+      : { ok: false, why: s.why };
+  }
+  if (mode === 'json') {
+    return { ok: true, why: '语法被强制合法，解释文本不会再混进来；但枚举、必填、类型仍然不保证。' };
+  }
+  if (s.syntax !== 'ok') return { ok: false, why: s.why + '。Schema 校验发生在解析之后，JSON 都读不出来就到不了这一关。' };
+  return s.schema === 'ok'
+    ? { ok: true, why: '语法 + Schema 双关通过，可以落库。' }
+    : { ok: false, why: s.why + '。Schema 把"生成的 JSON"变成了可校验的数据契约。' };
+}
+
+const MODE_NOTE = {
+  none: '自然语言：适合展示型回答，不适合程序解析',
+  prompt: '只靠 Prompt：跨模型可用，最容易被一句解释打穿',
+  json: 'JSON Mode：保证是 JSON，不保证是你的 JSON',
+  schema: 'JSON Schema：字段、类型、必填、枚举都被约束'
+};
+
+function paintStruct() {
+  let pass = 0;
+  el('struct-list').innerHTML = SAMPLES.map(s => {
+    const v = verdict(structMode, s);
+    if (v.ok) pass++;
+    return '<div class="vrow ' + (v.ok ? 'ok' : 'bad') + '">' +
+      '<span class="mark">' + (v.ok ? '✓' : '✗') + '</span>' +
+      '<div><h4>' + esc(s.n) + '</h4>' +
+      '<div class="vraw">' + esc(s.raw) + '</div>' +
+      '<div class="vwhy"><b>' + (v.ok ? '通过' : '拦下') + '</b> · ' + esc(v.why) + '</div></div></div>';
+  }).join('');
+  el('struct-summary').textContent = pass + ' / ' + SAMPLES.length;
+  el('struct-note').textContent = MODE_NOTE[structMode];
+}
+
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    structMode = btn.dataset.mode;
+    paintStruct();
+  });
+});
+paintStruct();
+
+/* ══════════════════════════════════════════════════════════════
+   06 · 概念速查表
+   ══════════════════════════════════════════════════════════════ */
+const CONCEPTS = [
+  {
+    group: '返回与传输',
+    items: [
+      { n: '同步返回', a: 'non-stream / blocking', w: '拿到完整响应体再处理，后端最简单', t: '后台批处理、必须整份校验才能提交的事务链路' },
+      { n: '流式返回', a: 'stream: true', w: '片段陆续到达，首字提前可见', t: '用户盯着屏幕等长回答，八秒没动静就要刷新的时候' },
+      { n: 'TTFT', a: 'time_to_first_token', w: '请求发出到第一个可展示片段的时间', t: '用户说"卡住了"但监控显示请求成功——先分排队、上下文过长还是供应商抖动' },
+      { n: 'SSE', a: 'text/event-stream', w: '服务端到客户端的单向文本事件流', t: '浏览器里逐字输出聊天内容，且只需要下行时' },
+      { n: 'WebSocket', a: 'ws / wss', w: '双向长连接，两端随时发消息', t: '实时语音、插话打断、频繁取消——需要客户端持续上行' },
+      { n: 'HTTP chunked', a: 'Transfer-Encoding', w: '分段传输响应体，是传输机制不是事件协议', t: '自己写网关代理流式响应，需要自定义消息边界时' }
+    ]
+  },
+  {
+    group: '流式契约',
+    items: [
+      { n: '事件分隔符', a: '\\n\\n', w: '空行才结束一个事件，单换行只结束字段行', t: '手写 SSE 后正文总少几行，或浏览器收到半截事件时' },
+      { n: 'data 字段', a: 'data: …', w: '业务载荷，多个 data 行用 \\n 拼接', t: '多行 Markdown 或代码块要穿过 SSE 时，每行都得补前缀' },
+      { n: 'event / id / retry', a: 'event: token', w: '自定义事件名、事件序号、建议重连间隔', t: '断线重连要靠 id 判断续传位置，前端却只拿到 message' },
+      { n: 'finish_reason', a: 'stop / length / tool_calls', w: '告诉你是正常收尾还是被截断', t: 'JSON 少一个括号时第一件事是看它——是超长截断还是模型自己收尾' },
+      { n: '断流', a: 'INTERRUPTED', w: '没收到正常结束标记就结束的流', t: '流式落库前必须判一次：半截内容绝不能当成功写入' },
+      { n: '反向代理缓冲', a: 'proxy_buffering off', w: 'Nginx 默认攒块下发，会把流式打回同步体感', t: '本地流式很好、上线后首字又变成八秒' }
+    ]
+  },
+  {
+    group: '重试与幂等',
+    items: [
+      { n: '指数退避 + 抖动', a: 'base * 2^n + random', w: '拉开重试间隔，错开同时失败的客户端', t: '供应商 503 之后所有实例同一秒重试，第二波尖峰是你自己造的' },
+      { n: '最大重试次数', a: 'maxRetries', w: '给失败一个上限，通常 2–3 次', t: '账单上出现同一个问题被计费七八次' },
+      { n: '总截止时间', a: 'deadline / SLA', w: '到点即失败，不让重试把一秒拖成一分钟', t: '重试全部失败，用户等了四十秒才看到报错' },
+      { n: 'Retry-After', a: '响应头 / 限流头', w: '供应商告诉你什么时候再来', t: '429 之后不该继续按自己的节奏猛敲' },
+      { n: '幂等 Key', a: 'tenant:user:conv:msg', w: '同一条业务消息只允许一次最终结果', t: '用户狂点重新发送，或网关超时重试导致重复落库' },
+      { n: 'attempt_id', a: 'attempt_id', w: '一次模型调用尝试，重试时递增', t: '排查"这条回答是哪次调用产出的"，别只看 message_id' }
+    ]
+  },
+  {
+    group: '限流与容量',
+    items: [
+      { n: 'RPM / TPM / RPD', a: 'requests / tokens per min', w: '三个维度分开计，按项目而非单个 Key 生效', t: 'QPS 很低却一直 429——通常是 TPM 或日配额先爆' },
+      { n: '令牌桶', a: 'token bucket', w: '允许一定突发，长期速率受控', t: '模型级与供应商级限流的主力，参数要按 P95 上下文反推' },
+      { n: '并发信号量', a: 'semaphore', w: '限制同时在跑的流式请求数', t: 'Token 没超、连接数却把网关打满的时候' },
+      { n: '熔断', a: 'circuit breaker', w: '连续失败就停止打这家供应商', t: '供应商连续 429 或 5xx，继续重试只会拖垮自己' },
+      { n: '降级链路', a: 'primary → fallback', w: '主模型不可用时切同级或轻量模型', t: '降级不能偷偷变差，界面要显式标"快速模式"' }
+    ]
+  },
+  {
+    group: '结构化输出',
+    items: [
+      { n: 'JSON Mode', a: 'response_format: json_object', w: '保证语法是 JSON，不保证符合你的字段', t: '前端不再崩，但下游仍然收到 intent="退款" 这种值' },
+      { n: 'JSON Schema', a: 'json_schema / strict', w: '约束字段、类型、必填、枚举', t: '要让程序直接消费模型输出，而不是再写一堆 if 判断' },
+      { n: 'Structured Outputs', a: 'strict: true', w: '供应商在解码层再加约束，比 Prompt 硬得多', t: '换供应商后同一份 Schema 突然不生效，因为支持的是子集' },
+      { n: 'Function Calling', a: 'tools / tool_choice', w: '让模型选工具并生成参数，面向动作', t: '要执行操作而不是产出自然语言答案；它不替代最终答复' },
+      { n: '解析失败率', a: 'parse_failure_rate', w: '结构化解析失败的比例', t: '换模型、改 Prompt、加字段之后第一个该看的指标' }
+    ]
+  },
+  {
+    group: '观测与回写',
+    items: [
+      { n: 'trace_id', a: 'trace_id', w: '把一次业务请求的整条链路串起来', t: '用户说"刚才 AI 没返回"，你要能定位到哪一次调用' },
+      { n: 'provider_request_id', a: 'request-id 响应头', w: '供应商侧的请求号，工单必需', t: '要拿账单和供应商对账、报障时' },
+      { n: 'usage', a: 'prompt / completion tokens', w: '供应商回传的真实用量', t: '自己估的 Token 和账单差三成，先看这里' },
+      { n: '取消率', a: 'cancel_rate', w: '用户中途取消的比例', t: '数值偏高通常不是用户没耐心，是首字太慢或回答太长' },
+      { n: '取消传播', a: 'abort / cancellation', w: '把取消信号传到供应商请求', t: '前端点了停止、账单还在涨——只在前端停不算取消' }
+    ]
+  }
+];
+
+const qEl = el('concept-q'), listEl = el('concept-list');
+
+function renderConcepts() {
+  const q = qEl.value.trim().toLowerCase();
+  let total = 0;
+
+  listEl.innerHTML = CONCEPTS.map(g => {
+    const rows = g.items.filter(i =>
+      !q || (i.n + ' ' + i.a + ' ' + i.w + ' ' + i.t).toLowerCase().includes(q)
+    );
+    if (!rows.length) return '';
+    total += rows.length;
+    return '<div class="concept-group"><h3>' + esc(g.group) + '<em>' + rows.length + ' 条</em></h3>' +
+      '<div class="ctable-wrap"><table class="ctable"><thead><tr>' +
+      '<th>概念</th><th>字段 / 参数</th><th>它给你什么</th><th>什么时候会想起它</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(i =>
+        '<tr><td><span class="c-name">' + esc(i.n) + '</span></td>' +
+        '<td><span class="c-api">' + esc(i.a) + '</span></td>' +
+        '<td><span class="c-what">' + esc(i.w) + '</span></td>' +
+        '<td><span class="c-when">' + esc(i.t) + '</span></td></tr>'
+      ).join('') +
+      '</tbody></table></div></div>';
+  }).join('');
+
+  if (!total) listEl.innerHTML = '<div class="alert bad">没有匹配的条目。</div>';
+  el('concept-count').textContent = total;
+}
+qEl.addEventListener('input', renderConcepts);
+renderConcepts();
+</script>
+</body>
+</html>
