@@ -23,7 +23,7 @@ cd ai-learning-lab
 
 ## 要新增页面？先读 [DESIGN.md](DESIGN.md)
 
-`DESIGN.md` 是**所有页面样式与结构的唯一规范来源**：设计令牌、组件清单、页面骨架、文案规则、自检清单都在里面。改样式只改 `html/assets/lab.css`。
+`DESIGN.md` 是**所有页面样式与结构的唯一规范来源**：设计令牌、组件清单、页面骨架、文案规则、自检清单都在里面。配色改 `html/assets/tokens.css`，组件改 `html/assets/lab.css`。
 
 - 组件库的活示例：[`html/_template/index.html`](html/_template/index.html)（可直接打开，所有可用组件都在这一页）
 - 参考实现：[`html/llm-core/llm-runtime-lab/index.html`](html/llm-core/llm-runtime-lab/index.html)
@@ -47,7 +47,8 @@ ai-learning-lab/
     ├── CNAME                    # 自定义域名 ai.lior.ren
     ├── favicon.svg              # 站点图标（Lucide sparkles，ISC 协议）
     ├── assets/
-    │   └── lab.css              # 共享设计系统：改样式只改这里
+    │   ├── tokens.css           # 设计令牌 + 基础层：改配色只改这里
+    │   └── lab.css              # 通用组件：顶栏、卡片、控件、表格
     ├── _template/
     │   └── index.html           # 组件库 + 起手模板（不登记到索引）
     ├── llm-core/                # 大模型基础机制

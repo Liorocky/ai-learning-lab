@@ -8,44 +8,12 @@
      lab.css        → 骨架与通用组件（本文件）
      页面 <style>    → 仅该页独有的可视化（如 token 色块、注意力热力图）
    ──────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700;900&display=swap');
 
-/* ── 1. 设计令牌 ─────────────────────────────────────────── */
-:root {
-  --ink:#e9e5dd;          /* 正文 */
-  --muted:#9b9a95;        /* 次要说明 */
-  --line:rgba(233,229,221,.14);
-  --panel:#111413;        /* 卡片底 */
-  --panel2:#161a18;       /* 卡片内嵌块 / 表头 */
-  --bg:#0a0c0b;           /* 页面底 */
-  --lime:#cbff62;         /* 主强调色 */
-  --orange:#ff8659;
-  --blue:#63d7ff;
-  --yellow:#ffd166;
-  --red:#ff6574;
-}
+/* ── 1–2. 设计令牌与基础层由 tokens.css 提供 ────────────── */
+@import url('tokens.css');
 
-/* ── 2. 基础与背景纹理 ───────────────────────────────────── */
-*, *::before, *::after { box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body {
-  margin:0; background:var(--bg); color:var(--ink);
-  font-family:"IBM Plex Mono",monospace; font-size:14px; line-height:1.6;
-  overflow-x:hidden;
-}
-/* 细网格叠层，营造“仪器面板”质感，不影响交互 */
-body::before {
-  content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; z-index:10;
-  background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px);
-  background-size:28px 28px;
-  mask-image:linear-gradient(to bottom,black,transparent 80%);
-}
-a { color:inherit; }
-button, input, textarea, select { font:inherit; }
-button { cursor:pointer; }
-::selection { background:var(--lime); color:#0d1209; }
-:focus-visible { outline:2px solid var(--lime); outline-offset:2px; }
+/* 内容页需要抑制横向滚动（索引页不需要，故不放进 tokens） */
+body { overflow-x:hidden; }
 
 .shell { width:min(1220px,calc(100% - 40px)); margin:auto; }
 
@@ -215,8 +183,4 @@ input[type="range"] { width:100%; accent-color:var(--lime); }
   .foot { display:block; }
   .foot > * + * { margin-top:10px; }
   .ctable { min-width:700px; }
-}
-@media (prefers-reduced-motion:reduce) {
-  * { animation-duration:.01ms !important; transition-duration:.01ms !important; }
-  html { scroll-behavior:auto; }
 }

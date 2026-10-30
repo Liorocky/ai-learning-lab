@@ -15,7 +15,7 @@
 - 单页自包含：一个 `index.html` + 共享 `html/assets/lab.css`，无构建、无 npm、无框架。
 - 不调用任何外部 API，所有数据在页面内模拟，且标注"示意"。
 - 双击 `file://` 必须可用 —— 禁止 `fetch()` 读本地文件，数据直接写在 `<script>` 里。
-- 样式改动**只改** `html/assets/lab.css`，不要在页面里重复定义通用组件。
+- 样式改动分层：配色/字体改 `html/assets/tokens.css`，组件改 `html/assets/lab.css`，页面只写自己独有的可视化。不要在页面里重写 `:root`。
 - 页面路径固定 `html/<分类>/<slug>/index.html`。
 
 ## 常用命令

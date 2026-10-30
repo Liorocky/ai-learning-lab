@@ -1,0 +1,52 @@
+/* ────────────────────────────────────────────────────────────
+   设计令牌与基础层 —— 全站唯一来源
+   ------------------------------------------------------------
+   索引页：<link rel="stylesheet" href="assets/tokens.css">
+   内容页：由 lab.css 通过 @import 引入，无需单独引用
+
+   改配色 / 字体 / 背景纹理，只改本文件。
+   ──────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700;900&display=swap');
+
+:root {
+  --ink:#e9e5dd;          /* 正文 */
+  --muted:#9b9a95;        /* 次要说明 */
+  --line:rgba(233,229,221,.14);
+  --panel:#111413;        /* 卡片底 */
+  --panel2:#161a18;       /* 卡片内嵌块 / 表头 */
+  --bg:#0a0c0b;           /* 页面底 */
+  --lime:#cbff62;         /* 主强调色 */
+  --orange:#ff8659;
+  --blue:#63d7ff;
+  --yellow:#ffd166;
+  --red:#ff6574;
+}
+
+*, *::before, *::after { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"IBM Plex Mono",monospace;
+  font-size:14px;
+  line-height:1.6;
+}
+/* 细网格叠层，营造“仪器面板”质感，不拦截交互 */
+body::before {
+  content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; z-index:10;
+  background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px);
+  background-size:28px 28px;
+  mask-image:linear-gradient(to bottom,black,transparent 80%);
+}
+a { color:inherit; text-decoration:none; }
+button, input, textarea, select { font:inherit; }
+button { cursor:pointer; }
+::selection { background:var(--lime); color:#0d1209; }
+:focus-visible { outline:2px solid var(--lime); outline-offset:2px; }
+
+@media (prefers-reduced-motion:reduce) {
+  *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  html { scroll-behavior:auto; }
+}
