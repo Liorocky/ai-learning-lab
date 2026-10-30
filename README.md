@@ -1,46 +1,93 @@
-# LLM Runtime Lab
+# AI Learning Lab
 
-面向有开发经验的读者的单页交互式学习工具。它把大模型一次调用中最容易混淆的运行机制拆成可以亲手操作的可视化实验：从文本如何被 Tokenize，到上下文窗口怎样分配，再到 Temperature、Top-p、Top-k 如何影响下一个 Token 的选择。
+把大模型与 AI 工程里容易混淆的机制，做成**可以亲手操作的单页实验**。每个页面都是自包含的 HTML：无依赖、无构建步骤、无后端、不调用任何 API，双击即可打开。
 
-> 这是教学模拟器，不会调用任何模型 API，也不会把输入发送到网络。
-
-## 体验内容
-
-- **Token 实验台**：输入任意文本，观察子词风格的近似切分、Token 数与字符比例。
-- **上下文预算器**：调整 System Prompt / 工具、历史消息、RAG 片段和输出预留，实时查看窗口是否溢出。
-- **长上下文位置热力图**：用“中间丢失”的示意曲线理解为何重要约束不应埋在中段。
-- **采样参数模拟器**：调节 Temperature、Top-p 与 Top-k，观察 logits 经 softmax 后的概率、候选池及随机采样结果。
+仓库同时也是这些页面的归档目录——按主题分类，持续增补。
 
 ## 快速开始
 
-本项目没有依赖和构建步骤。克隆后直接用浏览器打开 `index.html`：
-
-```text
-index.html
+```bash
+git clone <仓库地址>
+cd ai-learning-lab
 ```
 
-也可以用任意静态文件服务在项目根目录启动预览。
+用浏览器打开 `html/index.html`，它就是所有页面的导航台（支持按分类筛选和关键词搜索）。
 
-## 设计原则
+> 页面全部是纯静态资源，`file://` 协议下即可完整运行；也可以用任意静态服务器预览。
 
-页面不是原文的复述，而是围绕工程决策设计的速查与实验空间：
-
-1. **成本与容量**：Token 是计费与窗口规划的共同单位，精确数值应以目标模型官方 tokenizer 与 API `usage` 为准。
-2. **上下文不是无限记忆**：窗口需为系统提示、工具定义、历史、检索内容和输出共同留出预算；放入窗口不代表信息被等权利用。
-3. **稳定性不是只靠低温**：结构化输出仍需要 schema 校验、截断检测、失败处理，以及对供应商 API 能力的核对。
-4. **可观测性优先**：生产调用应记录模型版本、输入／缓存／推理／输出 Token、裁剪策略和采样参数。
-
-## 项目结构
+## 目录结构
 
 ```text
-.
-├── index.html    # 自包含的交互式页面（HTML / CSS / JavaScript）
-└── README.md     # 项目说明
+ai-learning-lab/
+├── README.md                    # 本文件：仓库说明与写作规范
+├── .gitignore
+└── html/
+    ├── index.html               # 总索引：分类导航 + 搜索
+    ├── _template/               # 新页面的起手模板（不对外展示）
+    ├── llm-core/                # 大模型基础机制
+    │   └── llm-runtime-lab/
+    │       └── index.html
+    ├── prompting/               # 提示工程与输出控制
+    ├── rag/                     # 检索增强与知识库
+    ├── agents/                  # Agent 与工具调用
+    ├── engineering/             # 工程化与运维
+    └── playground/              # 实验场：草稿与零散想法
 ```
 
-## 内容来源
+### 分类约定
 
-交互内容基于 [JavaGuide：LLM 运行机制：Token、上下文窗口与采样参数怎么影响输出](https://javaguide.cn/ai/llm-basis/llm-operation-mechanism.html) 重新组织与编写。请以目标模型供应商的当前 API 文档为准，尤其是上下文上限、计费和参数支持范围。
+| 目录 | 放什么 | 典型主题 |
+| --- | --- | --- |
+| `llm-core/` | 模型自身怎么运转 | tokenizer、上下文窗口、注意力、采样与解码、KV Cache、微调与对齐 |
+| `prompting/` | 如何组织输入与约束输出 | 结构化输出、few-shot、CoT、失败重试、schema 校验 |
+| `rag/` | 外部知识的接入链路 | 切分策略、embedding、向量检索、rerank、引用与召回评估 |
+| `agents/` | 模型如何行动 | function calling、规划、多智能体、workflow、human-in-the-loop |
+| `engineering/` | 让它稳定又便宜地跑起来 | 推理性能、缓存、成本测算、评估体系、可观测性、灰度与回滚 |
+| `playground/` | 还没想好归类的 | 草图、一次性试验、视觉化小玩具 |
+
+分类不追求学术严谨，只求**新增页面时能立刻决定它该放哪**。确实归不进去的，先扔 `playground/`。
+
+## 新增一个页面
+
+1. **建目录**：`html/<分类>/<slug>/index.html`，`slug` 用小写短横线命名（如 `context-budget-calc`）。
+2. **从模板起步**：复制 `html/_template/index.html`，改标题与内容。模板里已经带好返回索引的链接和统一的设计令牌。
+3. **登记到索引**：打开 `html/index.html`，在 `LABS` 数组里追加一项：
+
+   ```js
+   {
+     cat: 'rag',                                  // 必须是 CATEGORIES 里的 key
+     title: 'Chunking Lab',
+     desc: '一句话说明这个页面能让人看见什么。',
+     path: './rag/chunking-lab/index.html',
+     tags: ['切分', 'chunk', 'overlap', '召回']
+   }
+   ```
+
+4. **自测**：本地打开 `html/index.html`，确认卡片能点开、返回索引正常、移动端不横向溢出。
+
+### 写作约定
+
+- **单文件自包含**：CSS 与 JS 内联，不引外部资源（Google Fonts 可选，需有系统字体兜底）。
+- **相对路径**：页面位于 `html/<分类>/<slug>/`，回到索引是 `../../index.html`。
+- **一个页面只讲一个机制**：宁可多做几个小页面，也不要把三个主题塞进一页。
+- **说清边界**：如果页面里的数据是教学近似值（模拟分词、示意曲线），必须在页面上明确标注，不要把示意值说成官方数值。
+- **配色**：深色底 `#0a0c0b` + 石灰绿强调 `#cbff62`，与既有页面保持一致。
+
+## 已有页面
+
+| 页面 | 分类 | 说明 |
+| --- | --- | --- |
+| [LLM Runtime Lab](html/llm-core/llm-runtime-lab/index.html) | 大模型基础机制 | Token 切分、上下文预算、位置注意力、Temperature / Top-p / Top-k 采样模拟 |
+
+## 提交与同步
+
+```bash
+git add -A
+git commit -m "feat(<分类>): 新增 <页面名>"
+git push
+```
+
+提交信息用 `feat / fix / docs / chore` 前缀，括号里写分类目录名，方便回溯。
 
 ## License
 

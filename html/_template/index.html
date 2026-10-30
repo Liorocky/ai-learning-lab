@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="一句话描述这个页面解决什么问题。" />
+  <title>页面标题 · AI Learning Lab</title>
+  <style>
+    /* 与仓库内其它页面共享的设计令牌：深色底 + 石灰绿强调色 */
+    :root { --ink:#e9e5dd; --muted:#9b9a95; --line:rgba(233,229,221,.14); --panel:#111413; --panel2:#161a18; --bg:#0a0c0b; --lime:#cbff62; --orange:#ff8659; --blue:#63d7ff; --yellow:#ffd166; --red:#ff6574; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:14px; line-height:1.6; }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; z-index:10; background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px); background-size:28px 28px; mask-image:linear-gradient(to bottom,black,transparent 80%); }
+    a { color:inherit; text-decoration:none; }
+    .shell { width:min(1180px,calc(100% - 40px)); margin:auto; position:relative; z-index:1; }
+    .topbar { height:64px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
+    .brand { display:flex; align-items:center; gap:10px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+    .pulse { width:9px; height:9px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 5px rgba(203,255,98,.08),0 0 16px var(--lime); }
+    .status { color:var(--muted); font-size:11px; } .status b { color:var(--lime); font-weight:500; }
+    .hero { padding:70px 0 50px; }
+    .eyebrow { color:var(--lime); font-size:11px; letter-spacing:.11em; text-transform:uppercase; }
+    h1,h2,h3,p { margin-top:0; } h1,h2 { font-family:"Noto Serif SC",serif; }
+    h1 { font-size:clamp(36px,5.5vw,64px); letter-spacing:-.05em; line-height:1.1; margin:12px 0 16px; font-weight:900; }
+    .hero p { color:#b6b5b0; font-size:15px; max-width:620px; margin:0; }
+    section { margin-bottom:64px; }
+    .section-head { padding:16px 0; border-top:1px solid var(--line); margin-bottom:20px; }
+    h2 { margin:0; font-size:clamp(24px,3.4vw,34px); letter-spacing:-.03em; }
+    .card { background:var(--panel); border:1px solid var(--line); padding:24px; }
+    .foot { border-top:1px solid var(--line); padding:26px 0 52px; color:var(--muted); font-size:11px; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <!-- 返回索引：页面位于 html/<分类>/<slug>/index.html，故上溯两级 -->
+    <header class="topbar">
+      <div class="brand"><a href="../../index.html" title="返回索引" style="color:var(--muted)">← 索引</a><i class="pulse"></i> 页面标题</div>
+      <div class="status"><b>●</b> static / no network</div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">分类 / 主题</div>
+      <h1>一句话说清这个页面让人<br>看见什么。</h1>
+      <p>用一两句交代背景：读者会带着什么问题进来，页面帮他解决哪一个。</p>
+    </section>
+
+    <section>
+      <header class="section-head"><h2>01. 小节标题</h2></header>
+      <div class="card">把可交互的部分放在这里。</div>
+    </section>
+
+    <footer class="foot">AI Learning Lab · 教学模拟，不调用任何外部 API。</footer>
+  </main>
+</body>
+</html>
