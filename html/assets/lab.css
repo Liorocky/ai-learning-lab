@@ -1,0 +1,222 @@
+/* ────────────────────────────────────────────────────────────
+   AI Learning Lab · 共通设计系统
+   ------------------------------------------------------------
+   所有 lab 页面通过 <link rel="stylesheet" href="../../assets/lab.css">
+   引用本文件。改这里 = 全站生效，不要在每个页面里重复定义。
+
+   分层约定：
+     lab.css        → 骨架与通用组件（本文件）
+     页面 <style>    → 仅该页独有的可视化（如 token 色块、注意力热力图）
+   ──────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700;900&display=swap');
+
+/* ── 1. 设计令牌 ─────────────────────────────────────────── */
+:root {
+  --ink:#e9e5dd;          /* 正文 */
+  --muted:#9b9a95;        /* 次要说明 */
+  --line:rgba(233,229,221,.14);
+  --panel:#111413;        /* 卡片底 */
+  --panel2:#161a18;       /* 卡片内嵌块 / 表头 */
+  --bg:#0a0c0b;           /* 页面底 */
+  --lime:#cbff62;         /* 主强调色 */
+  --orange:#ff8659;
+  --blue:#63d7ff;
+  --yellow:#ffd166;
+  --red:#ff6574;
+}
+
+/* ── 2. 基础与背景纹理 ───────────────────────────────────── */
+*, *::before, *::after { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Mono",monospace; font-size:14px; line-height:1.6;
+  overflow-x:hidden;
+}
+/* 细网格叠层，营造“仪器面板”质感，不影响交互 */
+body::before {
+  content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; z-index:10;
+  background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px);
+  background-size:28px 28px;
+  mask-image:linear-gradient(to bottom,black,transparent 80%);
+}
+a { color:inherit; }
+button, input, textarea, select { font:inherit; }
+button { cursor:pointer; }
+::selection { background:var(--lime); color:#0d1209; }
+:focus-visible { outline:2px solid var(--lime); outline-offset:2px; }
+
+.shell { width:min(1220px,calc(100% - 40px)); margin:auto; }
+
+/* ── 3. 顶栏 ─────────────────────────────────────────────── */
+.topbar {
+  height:64px; border-bottom:1px solid var(--line);
+  display:flex; justify-content:space-between; align-items:center;
+  position:relative; z-index:1;
+}
+.brand { display:flex; align-items:center; gap:10px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
+.pulse { width:9px; height:9px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 5px rgba(203,255,98,.08),0 0 16px var(--lime); }
+.status { color:var(--muted); font-size:11px; }
+.status b { color:var(--lime); font-weight:500; }
+/* 返回索引链接 */
+.back { color:var(--muted); transition:color .2s; }
+.back:hover { color:var(--lime); }
+
+/* ── 4. 首屏 ─────────────────────────────────────────────── */
+.hero { display:grid; grid-template-columns:1.2fr .8fr; gap:64px; padding:86px 0 70px; align-items:end; position:relative; }
+.eyebrow { color:var(--lime); font-size:11px; letter-spacing:.11em; text-transform:uppercase; display:flex; gap:9px; align-items:center; }
+h1, h2, h3, p { margin-top:0; }
+h1, h2 { font-family:"Noto Serif SC",serif; }
+h1 { font-size:clamp(44px,6.8vw,88px); letter-spacing:-.055em; line-height:1.06; margin:12px 0 20px; font-weight:900; max-width:780px; }
+.hero p { color:#b6b5b0; font-size:15px; max-width:620px; }
+.hero-note { border-left:1px solid var(--lime); padding:20px 0 20px 24px; color:#bbbcb5; }
+.hero-note strong { display:block; color:var(--ink); font-size:18px; font-weight:500; margin-bottom:6px; }
+
+/* ── 5. 阶段导航条（可选）───────────────────────────────── */
+.workflow {
+  border:1px solid var(--line); display:grid; grid-template-columns:repeat(4,1fr);
+  margin-bottom:84px; background:rgba(255,255,255,.015);
+}
+.workflow.five { grid-template-columns:repeat(5,1fr); }
+.flow { padding:20px; min-height:109px; position:relative; }
+.flow:not(:last-child) { border-right:1px solid var(--line); }
+.flow::before { content:attr(data-n); color:var(--lime); font-size:11px; }
+.flow b { display:block; margin:7px 0 2px; font-size:15px; font-weight:500; }
+.flow span { font-size:11px; color:var(--muted); }
+
+/* ── 6. 章节 ─────────────────────────────────────────────── */
+section { scroll-margin-top:20px; margin-bottom:72px; }
+.section-head {
+  display:flex; justify-content:space-between; gap:22px;
+  padding:18px 0; border-top:1px solid var(--line); align-items:baseline;
+}
+h2 { margin:0; font-size:clamp(28px,4vw,43px); letter-spacing:-.04em; }
+.section-head p { margin:0; color:var(--muted); font-size:12px; max-width:440px; }
+
+/* ── 7. 卡片与栅格 ───────────────────────────────────────── */
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.grid.three { grid-template-columns:repeat(3,1fr); }
+.card { background:var(--panel); border:1px solid var(--line); padding:24px; min-width:0; position:relative; }
+.card h3 { font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:#c7c9c0; font-weight:500; margin-bottom:16px; }
+.hint { color:var(--muted); font-size:11px; }
+
+/* ── 8. 表单控件 ─────────────────────────────────────────── */
+textarea {
+  width:100%; resize:vertical; background:#0b0e0d; color:var(--ink);
+  border:1px solid var(--line); border-radius:2px; padding:14px;
+  min-height:124px; outline:none; transition:border-color .2s; line-height:1.7;
+}
+textarea:focus { border-color:var(--lime); }
+.control { display:grid; grid-template-columns:120px 1fr 60px; gap:12px; align-items:center; margin:13px 0; }
+.control label { color:#c8c9c3; font-size:12px; }
+.value { text-align:right; color:var(--lime); font-size:12px; }
+input[type="range"] { width:100%; accent-color:var(--lime); }
+
+/* ── 9. 指标块 ───────────────────────────────────────────── */
+.metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); }
+.metric { background:var(--panel2); padding:13px; }
+.metric b { display:block; font-size:22px; font-weight:500; color:var(--lime); }
+.metric span { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+
+/* ── 10. 代码块 ──────────────────────────────────────────── */
+.code {
+  background:#090b0a; border:1px solid var(--line); padding:14px;
+  color:#b9c4bd; font-size:11px; white-space:pre-wrap; overflow:auto;
+}
+.code .cyan, .code .blue { color:var(--blue); }
+.code .lime { color:var(--lime); }
+.code .orange { color:var(--orange); }
+.code .red { color:var(--red); }
+.code .yellow { color:var(--yellow); }
+
+/* ── 11. 按钮与结果区 ────────────────────────────────────── */
+.btn {
+  display:inline-block; border:1px solid var(--lime); color:#10150e; background:var(--lime);
+  padding:10px 13px; font-size:11px; transition:.2s;
+}
+.btn:hover { background:#efffc1; transform:translateY(-1px); }
+.btn.ghost { background:none; color:var(--lime); }
+.btn.ghost:hover { background:rgba(203,255,98,.1); }
+.decision {
+  display:flex; align-items:center; justify-content:space-between;
+  background:#0b0e0d; border:1px solid var(--line); padding:17px; margin-top:18px; gap:15px;
+}
+.decision span { font-size:12px; color:var(--muted); }
+.decision strong { color:var(--lime); font-size:17px; font-weight:500; }
+.chips { display:flex; flex-wrap:wrap; gap:7px; min-height:34px; padding-top:10px; }
+.chip { border:1px solid rgba(203,255,98,.35); color:var(--lime); padding:3px 6px; font-size:11px; }
+.alert { margin-top:19px; padding:11px 13px; border-left:2px solid var(--lime); background:rgba(203,255,98,.06); color:#c7c9c2; font-size:12px; }
+.alert.bad { border-color:var(--red); background:rgba(255,101,116,.08); }
+
+/* ── 12. 收尾提示块 ──────────────────────────────────────── */
+.callout {
+  background:linear-gradient(110deg,rgba(203,255,98,.09),rgba(99,215,255,.04));
+  border:1px solid rgba(203,255,98,.26); padding:24px;
+  display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center;
+}
+.callout h3 { font-family:"Noto Serif SC",serif; font-size:23px; letter-spacing:-.03em; margin-bottom:4px; }
+.callout p { margin:0; color:#b5b8af; font-size:12px; }
+
+/* ── 13. 概念速查表 ──────────────────────────────────────── */
+.concept-search { display:flex; align-items:center; gap:11px; border:1px solid var(--line); background:#0b0e0d; padding:10px 13px; margin-bottom:28px; }
+.concept-search input { flex:1; background:none; border:0; outline:none; color:var(--ink); font-size:12px; }
+.concept-search input::placeholder { color:#6c6d69; }
+.concept-search i { color:var(--lime); font-style:normal; font-size:12px; }
+.concept-search span { color:var(--muted); font-size:11px; white-space:nowrap; }
+.concept-search b { color:var(--lime); font-weight:500; }
+.concept-group { margin-bottom:26px; }
+.concept-group h3 {
+  display:flex; align-items:baseline; gap:9px; font-size:11px; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--lime); font-weight:600; margin:0 0 9px;
+  padding-bottom:8px; border-bottom:1px solid rgba(203,255,98,.22);
+}
+.concept-group h3 em { color:var(--muted); font-style:normal; font-size:10px; letter-spacing:0; text-transform:none; }
+.ctable-wrap { overflow-x:auto; }
+.ctable { width:100%; min-width:780px; border-collapse:collapse; font-size:12px; }
+.ctable thead th {
+  text-align:left; padding:10px 12px; color:#d6d7cf; font-size:12px;
+  letter-spacing:.05em; text-transform:uppercase; font-weight:600;
+  background:#161a18; border-bottom:1px solid rgba(233,229,221,.16); white-space:nowrap;
+}
+.ctable td { padding:12px; border-bottom:1px solid rgba(255,255,255,.055); vertical-align:top; line-height:1.65; }
+.ctable tbody tr:hover td { background:rgba(203,255,98,.035); }
+.ctable td:nth-child(1) { width:16%; }
+.ctable td:nth-child(2) { width:21%; }
+.ctable td:nth-child(3) { width:27%; }
+.ctable td:nth-child(4) { width:36%; }
+.c-name { color:var(--ink); font-weight:500; }
+.c-api { color:var(--blue); font-size:11px; word-break:break-word; }
+.c-what { color:#9d9e98; }
+.c-when { color:#c9cac3; }
+
+/* ── 14. 页脚 ────────────────────────────────────────────── */
+.foot {
+  border-top:1px solid var(--line); padding:30px 0 55px; color:var(--muted); font-size:11px;
+  display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap;
+}
+.foot a { color:var(--blue); }
+
+/* ── 15. 响应式 ──────────────────────────────────────────── */
+@media (max-width:900px) {
+  .grid.three { grid-template-columns:1fr; }
+}
+@media (max-width:760px) {
+  .shell { width:min(100% - 28px,1220px); }
+  .hero, .grid { grid-template-columns:1fr; gap:28px; }
+  .hero { padding:54px 0; }
+  .workflow, .workflow.five { grid-template-columns:1fr 1fr; margin-bottom:54px; }
+  .flow { border-right:0 !important; border-bottom:1px solid var(--line); }
+  .section-head { display:block; }
+  .section-head p { margin-top:8px; }
+  .control { grid-template-columns:94px 1fr 51px; }
+  .metrics { grid-template-columns:1fr; }
+  .callout { grid-template-columns:1fr; }
+  .foot { display:block; }
+  .foot > * + * { margin-top:10px; }
+  .ctable { min-width:700px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  * { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  html { scroll-behavior:auto; }
+}

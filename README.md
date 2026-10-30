@@ -21,20 +21,35 @@ cd ai-learning-lab
 
 > 页面全部是纯静态资源，`file://` 协议下即可完整运行；也可以用任意静态服务器预览。
 
+## 要新增页面？先读 [DESIGN.md](DESIGN.md)
+
+`DESIGN.md` 是**所有页面样式与结构的唯一规范来源**：设计令牌、组件清单、页面骨架、文案规则、自检清单都在里面。改样式只改 `html/assets/lab.css`。
+
+- 组件库的活示例：[`html/_template/index.html`](html/_template/index.html)（可直接打开，所有可用组件都在这一页）
+- 参考实现：[`html/llm-core/llm-runtime-lab/index.html`](html/llm-core/llm-runtime-lab/index.html)
+- 让 AI 接手时：把仓库路径告诉它，或直接说「读 DESIGN.md，新增一个 XX 页面」
+
 ## 目录结构
 
 ```text
 ai-learning-lab/
-├── README.md                    # 本文件：仓库说明与写作规范
+├── README.md                    # 本文件：仓库说明
+├── DESIGN.md                    # 页面开发规范（唯一来源）
+├── AGENTS.md                    # AI 工具入口：约束与命令速查
 ├── .gitignore
 ├── .github/
 │   └── workflows/
 │       └── pages.yml            # 推送 main 后自动部署 html/ 到 GitHub Pages
+├── scripts/
+│   └── new-page.sh              # 生成页面骨架，自动修正相对路径与标题
 └── html/
     ├── index.html               # 总索引：分类导航 + 搜索
     ├── CNAME                    # 自定义域名 ai.lior.ren
     ├── favicon.svg              # 站点图标（Lucide sparkles，ISC 协议）
-    ├── _template/               # 新页面的起手模板（不对外展示）
+    ├── assets/
+    │   └── lab.css              # 共享设计系统：改样式只改这里
+    ├── _template/
+    │   └── index.html           # 组件库 + 起手模板（不登记到索引）
     ├── llm-core/                # 大模型基础机制
     │   └── llm-runtime-lab/
     │       └── index.html
@@ -60,29 +75,30 @@ ai-learning-lab/
 
 ## 新增一个页面
 
-1. **建目录**：`html/<分类>/<slug>/index.html`，`slug` 用小写短横线命名（如 `context-budget-calc`）。
-2. **从模板起步**：复制 `html/_template/index.html`，改标题与内容。模板里已经带好返回索引的链接和统一的设计令牌。
-3. **登记到索引**：打开 `html/index.html`，在 `LABS` 数组里追加一项：
+```bash
+# 1. 生成骨架（自动修正相对路径、标题）
+bash scripts/new-page.sh rag chunking-lab "Chunking Lab"
 
-   ```js
-   {
-     cat: 'rag',                                  // 必须是 CATEGORIES 里的 key
-     title: 'Chunking Lab',
-     desc: '一句话说明这个页面能让人看见什么。',
-     path: './rag/chunking-lab/index.html',
-     tags: ['切分', 'chunk', 'overlap', '召回']
-   }
-   ```
+# 2. 写内容，并把条目追加到 html/index.html 的 LABS 数组
+# 3. 提交推送
+git add -A && git commit -m "feat(rag): 新增 Chunking Lab" && git push
+```
 
-4. **自测**：本地打开 `html/index.html`，确认卡片能点开、返回索引正常、移动端不横向溢出。
+第 2 步的 `LABS` 条目：
 
-### 写作约定
+```js
+{
+  cat: 'rag',                                  // 必须是 CATEGORIES 里的 key
+  title: 'Chunking Lab',
+  desc: '一句话说明这个页面能让人看见什么。',
+  path: './rag/chunking-lab/index.html',
+  tags: ['切分', 'chunk', 'overlap', '召回']
+}
+```
 
-- **单文件自包含**：CSS 与 JS 内联，不引外部资源（Google Fonts 可选，需有系统字体兜底）。
-- **相对路径**：页面位于 `html/<分类>/<slug>/`，回到索引是 `../../index.html`。
-- **一个页面只讲一个机制**：宁可多做几个小页面，也不要把三个主题塞进一页。
-- **说清边界**：如果页面里的数据是教学近似值（模拟分词、示意曲线），必须在页面上明确标注，不要把示意值说成官方数值。
-- **配色**：深色底 `#0a0c0b` + 石灰绿强调 `#cbff62`，与既有页面保持一致。
+**漏了 `LABS`，页面在线但首页看不到** —— 这是新增页面唯一的常见遗漏。
+
+具体的样式约束、组件用法、文案规则见 [DESIGN.md](DESIGN.md)。这里不再重复，避免两处规范漂移。
 
 ## 已有页面
 

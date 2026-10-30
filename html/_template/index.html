@@ -3,55 +3,206 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="一句话描述这个页面解决什么问题。" />
-  <title>页面标题 · AI Learning Lab</title>
-  <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
-  <link rel="mask-icon" href="../../favicon.svg" color="#cbff62" />
-  <style>
-    /* 与仓库内其它页面共享的设计令牌：深色底 + 石灰绿强调色 */
-    :root { --ink:#e9e5dd; --muted:#9b9a95; --line:rgba(233,229,221,.14); --panel:#111413; --panel2:#161a18; --bg:#0a0c0b; --lime:#cbff62; --orange:#ff8659; --blue:#63d7ff; --yellow:#ffd166; --red:#ff6574; }
-    * { box-sizing:border-box; }
-    html { scroll-behavior:smooth; }
-    body { margin:0; background:var(--bg); color:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:14px; line-height:1.6; }
-    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; z-index:10; background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px); background-size:28px 28px; mask-image:linear-gradient(to bottom,black,transparent 80%); }
-    a { color:inherit; text-decoration:none; }
-    .shell { width:min(1180px,calc(100% - 40px)); margin:auto; position:relative; z-index:1; }
-    .topbar { height:64px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
-    .brand { display:flex; align-items:center; gap:10px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; }
-    .pulse { width:9px; height:9px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 5px rgba(203,255,98,.08),0 0 16px var(--lime); }
-    .status { color:var(--muted); font-size:11px; } .status b { color:var(--lime); font-weight:500; }
-    .hero { padding:70px 0 50px; }
-    .eyebrow { color:var(--lime); font-size:11px; letter-spacing:.11em; text-transform:uppercase; }
-    h1,h2,h3,p { margin-top:0; } h1,h2 { font-family:"Noto Serif SC",serif; }
-    h1 { font-size:clamp(36px,5.5vw,64px); letter-spacing:-.05em; line-height:1.1; margin:12px 0 16px; font-weight:900; }
-    .hero p { color:#b6b5b0; font-size:15px; max-width:620px; margin:0; }
-    section { margin-bottom:64px; }
-    .section-head { padding:16px 0; border-top:1px solid var(--line); margin-bottom:20px; }
-    h2 { margin:0; font-size:clamp(24px,3.4vw,34px); letter-spacing:-.03em; }
-    .card { background:var(--panel); border:1px solid var(--line); padding:24px; }
-    .foot { border-top:1px solid var(--line); padding:26px 0 52px; color:var(--muted); font-size:11px; }
-  </style>
+  <meta name="description" content="AI Learning Lab 页面模板与组件清单。" />
+  <title>页面模板 · AI Learning Lab</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="mask-icon" href="../favicon.svg" color="#cbff62" />
+  <!--
+    ⚠ 本模板位于 html/_template/，实际页面位于 html/<分类>/<slug>/，
+       层级深一级，所以所有相对路径都要各退一层。
+       推荐用 scripts/new-page.sh 生成，它会自动修正路径与标题。
+  -->
+  <link rel="stylesheet" href="../assets/lab.css" />
 </head>
 <body>
   <main class="shell">
-    <!-- 返回索引：页面位于 html/<分类>/<slug>/index.html，故上溯两级 -->
+
+    <!-- ── 顶栏：左侧返回索引（必须保留），右侧标注页面性质 ── -->
     <header class="topbar">
-      <div class="brand"><a href="../../index.html" title="返回索引" style="color:var(--muted)">← 索引</a><i class="pulse"></i> 页面标题</div>
+      <div class="brand">
+        <a class="back" href="../index.html" title="返回索引">← 索引</a>
+        <i class="pulse"></i> 页面标题
+      </div>
       <div class="status"><b>●</b> static / no network</div>
     </header>
 
+    <!-- ── 首屏：一句话讲清这个页面让人看见什么 ── -->
     <section class="hero">
-      <div class="eyebrow">分类 / 主题</div>
-      <h1>一句话说清这个页面让人<br>看见什么。</h1>
-      <p>用一两句交代背景：读者会带着什么问题进来，页面帮他解决哪一个。</p>
+      <div>
+        <div class="eyebrow">分类 / 主题</div>
+        <h1>标题写成一句断言，<br>不要写名词短语。</h1>
+        <p>用一两句交代背景：读者带着什么问题进来，这个页面帮他解决哪一个。不要复述标题。</p>
+      </div>
+      <div class="hero-note">
+        <strong>右侧放一句「关键结论」</strong>
+        可以是反直觉的事实、常见误解的纠正，或这个页面最重要的一句话。
+      </div>
     </section>
 
-    <section>
-      <header class="section-head"><h2>01. 小节标题</h2></header>
-      <div class="card">把可交互的部分放在这里。</div>
+    <!-- ── 阶段导航条（可选）：页面讲一条链路时用，4 或 5 段 ── -->
+    <div class="workflow">
+      <div class="flow" data-n="01"><b>阶段一</b><span>一句话说明</span></div>
+      <div class="flow" data-n="02"><b>阶段二</b><span>一句话说明</span></div>
+      <div class="flow" data-n="03"><b>阶段三</b><span>一句话说明</span></div>
+      <div class="flow" data-n="04"><b>阶段四</b><span>一句话说明</span></div>
+    </div>
+
+    <!-- ── 01 卡片与栅格 ──────────────────────────────────── -->
+    <section id="cards">
+      <header class="section-head">
+        <h2>01. 章节标题也是断言。</h2>
+        <p>右侧这段说明交代「这一节做什么实验、怎么操作」，不要重复标题。</p>
+      </header>
+
+      <div class="grid">
+        <!-- 单张卡片 -->
+        <article class="card">
+          <h3>卡片标题（小写大写自动转换）</h3>
+          <p class="hint">正文用 .hint 做辅助说明，颜色更淡，不抢视觉。主要的可交互部分放在卡片里。</p>
+          <div class="code"><span class="lime">const</span> demo = <span class="cyan">"代码块支持语法着色"</span>;</div>
+        </article>
+
+        <article class="card">
+          <h3>第二张卡片</h3>
+          <p class="hint">两栏栅格是最常用的布局。需要三栏时给 .grid 加 .three。</p>
+          <div class="alert">中性提示条：用 .alert。需要警示语义时加 .bad 变成红色。</div>
+        </article>
+      </div>
     </section>
 
-    <footer class="foot">AI Learning Lab · 教学模拟，不调用任何外部 API。</footer>
+    <!-- ── 02 控件与指标 ──────────────────────────────────── -->
+    <section id="controls">
+      <header class="section-head">
+        <h2>02. 控件、指标与结论区。</h2>
+        <p>滑块拖动时实时更新右侧数值与 .metrics 指标块，是最标准的交互组合。</p>
+      </header>
+
+      <div class="card">
+        <h3>参数调节</h3>
+        <div class="control">
+          <label for="demo-range">参数名</label>
+          <input id="demo-range" type="range" min="0" max="100" step="1" value="50">
+          <output class="value" id="demo-value">50</output>
+        </div>
+
+        <div class="metrics" style="margin-top:20px">
+          <div class="metric"><b id="m1">—</b><span>指标一</span></div>
+          <div class="metric"><b id="m2">—</b><span>指标二</span></div>
+          <div class="metric"><b id="m3">—</b><span>指标三</span></div>
+        </div>
+
+        <div class="decision">
+          <span>结果说明<br><strong id="demo-result">等待操作</strong></span>
+          <button class="btn" id="demo-btn">执行动作 ↗</button>
+        </div>
+
+        <div class="chips" id="demo-chips" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ── 03 概念速查表 ──────────────────────────────────── -->
+    <section id="concepts">
+      <header class="section-head">
+        <h2>03. 不必精通，但要记得它存在。</h2>
+        <p>四列固定语义：概念 / 字段·参数 / 它给你什么 / 什么时候会想起它。第四列最重要，写触发场景而不是定义。</p>
+      </header>
+
+      <div class="concept-search">
+        <i>/</i>
+        <input id="concept-q" type="search" placeholder="搜索概念、参数或场景…" aria-label="搜索概念" />
+        <span><b id="concept-count">0</b> 条</span>
+      </div>
+      <div id="concept-list"></div>
+    </section>
+
+    <!-- ── 收尾 callout：把实验拉回生产 ───────────────────── -->
+    <aside class="callout">
+      <div>
+        <h3>从实验室回到生产。</h3>
+        <p>用一段话说明：读者回到真实项目时，最该记住的一件具体的事。可以是指标、是检查清单、是默认配置。</p>
+      </div>
+      <a class="btn" target="_blank" rel="noopener" href="#">阅读原文 ↗</a>
+    </aside>
+
+    <footer class="foot">
+      <span>AI Learning Lab · 教学模拟，不调用任何外部 API。</span>
+      <span><a href="../index.html">返回索引</a></span>
+    </footer>
   </main>
+
+<script>
+/* ────────────────────────────────────────────────────────────
+   概念表数据。新增条目只需往对应组的 items 追加 {n,a,w,t}。
+   渲染逻辑无需改动。
+   ──────────────────────────────────────────────────────────── */
+const CONCEPTS = [
+  {
+    group: '分组名称',
+    items: [
+      { n:'概念名', a:'字段 / 参数名', w:'它解决什么问题，一句话', t:'什么场景下你会想起它——写现象，不写定义' },
+      { n:'示例概念', a:'example_param', w:'它能给你什么能力', t:'JSON 解析失败时，先查这个' }
+    ]
+  },
+  {
+    group: '第二组',
+    items: [
+      { n:'第三个概念', a:'field_name', w:'作用说明', t:'线上指标异常时，第一时间看它' }
+    ]
+  }
+];
+
+const ESC = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const qEl = document.getElementById('concept-q');
+const listEl = document.getElementById('concept-list');
+
+function renderConcepts() {
+  const q = qEl.value.trim().toLowerCase();
+  let total = 0;
+
+  listEl.innerHTML = CONCEPTS.map(g => {
+    const rows = g.items.filter(i =>
+      !q || (i.n + ' ' + i.a + ' ' + i.w + ' ' + i.t).toLowerCase().includes(q)
+    );
+    if (!rows.length) return '';
+    total += rows.length;
+    return '<div class="concept-group"><h3>' + ESC(g.group) + '<em>' + rows.length + ' 条</em></h3>' +
+      '<div class="ctable-wrap"><table class="ctable"><thead><tr>' +
+      '<th>概念</th><th>字段 / 参数</th><th>它给你什么</th><th>什么时候会想起它</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(i =>
+        '<tr><td><span class="c-name">' + ESC(i.n) + '</span></td>' +
+        '<td><span class="c-api">' + ESC(i.a) + '</span></td>' +
+        '<td><span class="c-what">' + ESC(i.w) + '</span></td>' +
+        '<td><span class="c-when">' + ESC(i.t) + '</span></td></tr>'
+      ).join('') +
+      '</tbody></table></div></div>';
+  }).join('');
+
+  if (!total) listEl.innerHTML = '<div class="alert bad">没有匹配的条目。</div>';
+  document.getElementById('concept-count').textContent = total;
+}
+qEl.addEventListener('input', renderConcepts);
+renderConcepts();
+
+/* ── 演示控件联动 ────────────────────────────────────────── */
+const range = document.getElementById('demo-range');
+const chipsEl = document.getElementById('demo-chips');
+
+range.addEventListener('input', () => {
+  const v = +range.value;
+  document.getElementById('demo-value').textContent = v;
+  document.getElementById('m1').textContent = v;
+  document.getElementById('m2').textContent = (v * 1.4).toFixed(0);
+  document.getElementById('m3').textContent = v > 70 ? '紧张' : '宽松';
+});
+
+document.getElementById('demo-btn').addEventListener('click', () => {
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.textContent = '结果 ' + range.value;
+  chipsEl.appendChild(chip);
+  document.getElementById('demo-result').textContent = '已执行';
+});
+</script>
 </body>
 </html>
