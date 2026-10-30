@@ -51,6 +51,28 @@
     .decision { display:flex; align-items:center; justify-content:space-between; background:#0b0e0d; border:1px solid var(--line); padding:17px; margin-top:18px; gap:15px; }.decision span{font-size:12px;color:var(--muted)}.decision strong{color:var(--lime);font-size:17px;font-weight:500}.btn { border:1px solid var(--lime); color:#10150e; background:var(--lime); padding:10px 13px; font-size:11px; transition:.2s; }.btn:hover{background:#efffc1;transform:translateY(-1px)}
     .chips { display:flex; flex-wrap:wrap; gap:7px; min-height:34px; padding-top:10px; }.chip { border:1px solid rgba(203,255,98,.35); color:var(--lime); padding:3px 6px; font-size:11px; }
     .callout { background:linear-gradient(110deg,rgba(203,255,98,.09),rgba(99,215,255,.04)); border:1px solid rgba(203,255,98,.26); padding:24px; display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center; }.callout h3{font-family:"Noto Serif SC",serif;font-size:23px;letter-spacing:-.03em;margin-bottom:4px}.callout p{margin:0;color:#b5b8af;font-size:12px}.foot{border-top:1px solid var(--line);padding:30px 0 55px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:20px}
+    /* 概念速查表 */
+    .concept-search { display:flex; align-items:center; gap:11px; border:1px solid var(--line); background:#0b0e0d; padding:10px 13px; margin-bottom:28px; }
+    .concept-search input { flex:1; background:none; border:0; outline:none; color:var(--ink); font-size:12px; }
+    .concept-search input::placeholder { color:#6c6d69; }
+    .concept-search i { color:var(--lime); font-style:normal; font-size:12px; }
+    .concept-search span { color:var(--muted); font-size:11px; white-space:nowrap; }
+    .concept-search b { color:var(--lime); font-weight:500; }
+    .concept-group { margin-bottom:26px; }
+    .concept-group h3 { display:flex; align-items:baseline; gap:9px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--lime); font-weight:500; margin:0 0 9px; padding-bottom:8px; border-bottom:1px solid rgba(203,255,98,.22); }
+    .concept-group h3 em { color:var(--muted); font-style:normal; font-size:10px; letter-spacing:0; text-transform:none; }
+    .ctable-wrap { overflow-x:auto; }
+    .ctable { width:100%; min-width:780px; border-collapse:collapse; font-size:12px; }
+    .ctable thead th { text-align:left; padding:0 12px 8px; color:#6f716c; font-size:10px; letter-spacing:.07em; text-transform:uppercase; font-weight:500; border-bottom:1px solid var(--line); }
+    .ctable td { padding:12px; border-bottom:1px solid rgba(255,255,255,.055); vertical-align:top; line-height:1.65; }
+    .ctable tbody tr:hover td { background:rgba(203,255,98,.035); }
+    .ctable td:nth-child(1) { width:16%; } .ctable td:nth-child(2) { width:21%; }
+    .ctable td:nth-child(3) { width:27%; } .ctable td:nth-child(4) { width:36%; }
+    .c-name { color:var(--ink); font-weight:500; }
+    .c-api { color:var(--blue); font-size:11px; word-break:break-word; }
+    .c-what { color:#9d9e98; }
+    .c-when { color:#c9cac3; }
+    @media(max-width:760px){ .ctable{min-width:700px} .concept-search input{font-size:11px} }
     @media(max-width:760px){ .shell{width:min(100% - 28px,1220px)} .hero,.grid,.sampling-layout{grid-template-columns:1fr;gap:28px}.hero{padding:54px 0}.workflow{grid-template-columns:1fr 1fr;margin-bottom:54px}.flow:nth-child(2){border-right:0}.flow:nth-child(-n+2){border-bottom:1px solid var(--line)}.section-head{display:block}.section-head p{margin-top:8px}.control{grid-template-columns:94px 1fr 51px}.metrics{grid-template-columns:1fr}.foot{display:block}.foot>*+*{margin-top:10px}.callout{grid-template-columns:1fr} }
   </style>
 </head>
@@ -114,6 +136,13 @@
       <div class="card"><div class="sampling-layout"><div><h3>解码控制</h3><div class="control"><label for="temp">temperature</label><input id="temp" type="range" min="0.1" max="2" step="0.1" value="1"><output class="value" id="temp-v">1.0</output></div><div class="control"><label for="topp">top-p</label><input id="topp" type="range" min="0.1" max="1" step="0.05" value="0.95"><output class="value" id="topp-v">0.95</output></div><div class="control"><label for="topk">top-k</label><input id="topk" type="range" min="1" max="5" step="1" value="5"><output class="value" id="topk-v">5</output></div><p class="hint" style="margin-top:21px">当前任务：补全“今天天气真 __”。候选分数是固定示例，实际模型每一步都会重新计算 logits。</p></div><div><h3>softmax 后的候选分布</h3><div id="candidate-list"></div><div class="decision"><span>本次采样结果<br><strong id="picked">等待采样</strong></span><button id="sample-btn" class="btn">采样下一个 Token ↗</button></div><div class="chips" id="generation" aria-live="polite"></div></div></div></div>
     </section>
 
+    <section id="concepts">
+      <header class="section-head"><h2>05. 不必精通，但要记得它存在。</h2><p>这些概念不解释原理，只说明它解决什么问题、什么场景下会需要它。开发时先「想起有这个东西」，再回头查文档——比背细节有用得多。</p></header>
+      <label class="concept-search"><i>/</i><input id="concept-q" type="search" placeholder="搜索概念、参数名或场景，例如 logprob、截断、缓存…" aria-label="搜索概念"><span><b id="concept-count">0</b> 条</span></label>
+      <div id="concept-list"></div>
+      <p class="hint" style="margin-top:4px">字段名以各供应商当前文档为准：同一个概念在不同 API 里可能叫法不同，同名参数的含义也可能有差异。</p>
+    </section>
+
     <aside class="callout"><div><h3>从实验室回到生产。</h3><p>记录 model version、输入／缓存／推理／输出 Token、上下文裁剪策略和采样参数；结构化任务还需要 schema 校验、截断检测与可重试策略。</p></div><a class="btn" target="_blank" rel="noopener" href="https://javaguide.cn/ai/llm-basis/llm-operation-mechanism.html">阅读原文 ↗</a></aside>
     <footer class="foot"><span>LLM RUNTIME LAB / interactive explainer</span><span>Based on JavaGuide’s “LLM 运行机制” · 教学模拟，不调用模型 API</span></footer>
   </main>
@@ -147,7 +176,66 @@
     const candidates=[['好',5.0],['不错',3.2],['棒',2.1],['糟糕',.5],['紫色',-8.0]]; let current=[];
     function updateSampling(){ const T=+$('temp').value, p=+$('topp').value, k=+$('topk').value; $('temp-v').textContent=T.toFixed(1);$('topp-v').textContent=p.toFixed(2);$('topk-v').textContent=k; const exp=candidates.map(([,z])=>Math.exp(z/T)); const sum=exp.reduce((a,b)=>a+b,0); const base=candidates.map(([name,logit],i)=>({name,logit,p:exp[i]/sum})); let cumulative=0; current=base.map((item,index)=>{cumulative+=item.p; return {...item,keep:index<k && (cumulative-item.p < p || index===0)};}); $('candidate-list').innerHTML=current.map(x=>`<div class="candidate ${x.keep?'kept':'excluded'}"><span>${x.name}</span><div class="bar"><i style="width:${(x.p*100).toFixed(2)}%"></i></div><span class="pct">${(x.p*100).toFixed(2)}%</span></div>`).join(''); }
     ['temp','topp','topk'].forEach(id=>$(id).addEventListener('input',updateSampling)); updateSampling();
-    $('sample-btn').addEventListener('click',()=>{ const pool=current.filter(x=>x.keep); const total=pool.reduce((s,x)=>s+x.p,0); let r=Math.random()*total; let choice=pool[pool.length-1]; for(const x of pool){r-=x.p;if(r<=0){choice=x;break}} $('picked').textContent=choice.name; const chip=document.createElement('span'); chip.className='chip';chip.textContent=choice.name;$('generation').appendChild(chip); });
+    $('sample-btn').addEventListener('click',()=>{ const pool=current.filter(x=>x.keep); const total=pool.reduce((s,x)=>s+x.p,0); let r=Math.random()*total; let choice=pool[pool.length-1]; for(const x of pool){r-=x.p;if(r<=0){choice=x;break}} $('picked').textContent=choice.name; const chip=document.createElement('span'); chip.className='chip';chip.textContent=choice.name;    $('generation').appendChild(chip); });
+
+    /* 概念速查：只标注「它解决什么」与「什么时候会想起它」，不展开原理 */
+    const ESC = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const CONCEPTS = [
+      { group:'Token 与成本', items:[
+        { n:'logprobs 置信度', a:'logprobs / top_logprobs', w:'返回每个生成 Token 的对数概率，越接近 0 模型越确信（-5.0 表示很犹豫）', t:'抽取「金额 / 日期 / 单号」等关键字段时判断是否需要人工复核；线上平均 logprob 突然下降，往往是 Prompt 漂移或输入异常的早期信号' },
+        { n:'usage 用量对象', a:'usage 中的 prompt / completion / cached / reasoning', w:'供应商口径的真实 Token 组成，是计费与监控唯一可信的来源', t:'账单和自估算对不上、或要定位成本涨在哪一段时，先读它，不要用字符数反推' },
+        { n:'Prompt Caching', a:'cached_tokens / cache_control / context caching', w:'重复前缀命中缓存后按更低价计费，同时减少预填充计算', t:'固定 System Prompt 的批量评测、多轮对话、RAG 反复携带同一批片段——先算一次能省多少再动手' },
+        { n:'特殊 Token', a:'BOS / EOS / PAD / <tool_call/>', w:'对用户不可见，但真实占用上下文窗口', t:'窗口总数总是差几十 Token 对不上；或工具调用的边界行为异常时' },
+        { n:'多模态图片 Token', a:'detail: low|high · tokens ≈ width × height / 750', w:'图片按尺寸与分块规则折算成输入 Token，不是固定值', t:'图片 RAG 的首字延迟或成本突然失控；同一张图在不同模型下报价差异很大时' },
+        { n:'官方 Tokenizer 计数', a:'OpenAI Tokenizer · 各供应商 count 接口', w:'精确计数，可替代字符数估算', t:'预算卡在临界值、或按「1 汉字 ≈ 1 Token」估算总是偏低或偏高时' }
+      ]},
+      { group:'上下文与长度', items:[
+        { n:'生成上限命名不统一', a:'max_tokens / max_completion_tokens / max_output_tokens', w:'同一个概念有三套名字，部分还同时包含推理 Token', t:'换个供应商就报参数错误；或输出莫名在中间被截断' },
+        { n:'窗口 ≠ 最大生成长度', a:'—', w:'128K 通常指输入上限，单次输出往往只有 4K–8K', t:'规划长文生成、或想让模型一次吐出整份文档时' },
+        { n:'推理 Token 也占预算', a:'reasoning_tokens（各家返回位置不同）', w:'思考过程消耗生成预算，却不总出现在下一轮消息里', t:'推理模型输出被截断、或账单比预期高出一截时' },
+        { n:'reasoning_content 回传规则', a:'reasoning_content（思考模式）', w:'普通轮次无需回传，发生工具调用时必须随工具结果回传', t:'多轮对话 + 工具调用组合下出现 400 或上下文异常' },
+        { n:'服务端保存对话', a:'previous_response_id', w:'不用自己维护完整 message 数组', t:'想简化多轮上下文拼接、或手工裁剪历史已经出错时' },
+        { n:'自注意力的 O(N²)', a:'—', w:'输入翻倍，计算量约 4 倍，首字延迟随之上升', t:'长文档场景用户抱怨「一直在转圈」；或压测发现延迟非线性增长' },
+        { n:'长上下文优化技术', a:'FlashAttention / GQA / MQA / Sliding Window / Ring Attention', w:'降低显存与计算开销，但不改变理论复杂度', t:'看到「支持 1M 上下文」想判断真实成本与延迟，而不是只看标称数字' },
+        { n:'中间丢失', a:'lost in the middle', w:'开头与结尾更容易被利用，中段召回较弱', t:'约束明明写在提示里却没被遵守，且它恰好位于长上下文中段' }
+      ]},
+      { group:'解码与稳定性', items:[
+        { n:'seed 可复现', a:'seed', w:'尽力而为的可复现性，不保证逐字一致', t:'想复现一次效果很好的输出；或做回归对比测试' },
+        { n:'finish_reason 停止原因', a:'finish_reason: stop / length / content_filter', w:'告诉你这次生成为什么停下', t:'JSON 解析失败时的第一站——先分清是截断，还是模型自己收的尾' },
+        { n:'Stop Sequences', a:'stop', w:'命中指定字符串即提前结束', t:'想控制多段生成；或输出总在某个标记处被意外切断（停止词与业务文本重合）' },
+        { n:'reasoning_effort', a:'reasoning_effort', w:'间接调节推理深度与成本', t:'推理模型太慢或太贵，想在不换模型的前提下压一压' },
+        { n:'Penalty 三兄弟', a:'repetition / presence / frequency_penalty', w:'降低已出现 Token 的分数，抑制重复', t:'模型反复说同一句话；或 JSON 缺字段——惩罚可能误伤了必需的字段名' },
+        { n:'贪婪解码的副作用', a:'temperature = 0', w:'每步取最高分，最稳定但更容易陷入重复循环', t:'T=0 时输出开始诡异重复，「最稳」不等于「最好」' }
+      ]},
+      { group:'输出与校验', items:[
+        { n:'Structured Outputs', a:'response_format / strict: true / JSON Schema', w:'由服务端保证输出符合 schema，而不只是提示模型这么做', t:'想要「一定合法」的 JSON；或解析失败率虽低但始终无法清零' },
+        { n:'流式下的半成品 JSON', a:'stream: true', w:'增量推送，前端拿到的是不完整片段', t:'边流式边 JSON.parse 报错；网关需要重新组装完整对象' },
+        { n:'流式不省时也不省钱', a:'—', w:'降低首字延迟，端到端耗时与计费不变', t:'以为开流式就能整体加速或降本——它改善的是感知，不是成本' },
+        { n:'截断与停止词是两回事', a:'finish_reason=length vs 命中 stop', w:'结构化输出需要分别覆盖这两条失败路径', t:'重试策略只处理了其中一种，另一种仍在线上偶发' }
+      ]},
+      { group:'可观测性', items:[
+        { n:'一次调用该存什么', a:'model_version / usage / 裁剪策略 / 采样参数', w:'事后排查与成本归因的最小集合', t:'出问题时无法复现；或要回答「这周成本为什么涨了」' },
+        { n:'平均 logprob 监控', a:'logprobs 的聚合指标', w:'输出置信度的连续观测值', t:'想给「模型最近是不是变糊了」做早期预警，而不是等用户投诉' }
+      ]}
+    ];
+
+    function renderConcepts() {
+      const kw = $('concept-q').value.trim().toLowerCase();
+      let html = '', total = 0;
+      CONCEPTS.forEach(g => {
+        const rows = g.items.filter(it => !kw || (it.n+' '+it.a+' '+it.w+' '+it.t).toLowerCase().includes(kw));
+        if (!rows.length) return;
+        total += rows.length;
+        html += '<div class="concept-group"><h3>' + ESC(g.group) + '<em>' + rows.length + ' 条</em></h3>'
+          + '<div class="ctable-wrap"><table class="ctable"><thead><tr><th>概念</th><th>字段 / 参数</th><th>它给你什么</th><th>什么时候会想起它</th></tr></thead><tbody>'
+          + rows.map(it => '<tr><td class="c-name">' + ESC(it.n) + '</td><td class="c-api">' + ESC(it.a) + '</td><td class="c-what">' + ESC(it.w) + '</td><td class="c-when">' + ESC(it.t) + '</td></tr>').join('')
+          + '</tbody></table></div></div>';
+      });
+      $('concept-list').innerHTML = html || '<div class="alert bad">没有匹配的概念，换个关键词试试。</div>';
+      $('concept-count').textContent = total;
+    }
+    $('concept-q').addEventListener('input', renderConcepts);
+    renderConcepts();
   </script>
 </body>
 </html>

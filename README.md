@@ -87,7 +87,7 @@ ai-learning-lab/
 
 | 页面 | 分类 | 说明 |
 | --- | --- | --- |
-| [LLM Runtime Lab](html/llm-core/llm-runtime-lab/index.html) | 大模型基础机制 | Token 切分、上下文预算、位置注意力、Temperature / Top-p / Top-k 采样模拟 |
+| [LLM Runtime Lab](html/llm-core/llm-runtime-lab/index.html) | 大模型基础机制 | Token 切分、上下文预算、位置注意力、Temperature / Top-p / Top-k 采样模拟，附 26 条工程概念速查表（`logprobs`、`finish_reason`、Prompt Caching、`reasoning_content` 等，支持搜索） |
 
 ## 提交与同步
 
